@@ -42,7 +42,15 @@ func main() {
 				log.Printf("Failed to check for missing profiles for %s:\n %s", p, err)
 			}
 
-			insertChestData(db, p, out.Profiles)
+			var outSkipped, outInserted int
+			skipped, inserted, _ := insertChestData(db, p, out.Profiles)
+			outSkipped += skipped
+			outInserted += inserted
+			skipped, inserted, _ = insertDungeonStats(db, p, out.Profiles)
+			outSkipped += skipped
+			outInserted += inserted
+			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", p, inserted, skipped)
+
 		}
 	}
 
@@ -73,9 +81,7 @@ func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile)
 		CreateInBatches(&store_profiles, 1000).Error
 }
 
-func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) error {
-	var skipped, inserted int
-
+func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skipped, inserted int, err error) {
 	for _, profile := range profiles {
 		if _, ok := profile.Members[playerUUID]; !ok {
 			log.Println("Failed to get playerdata for %s in profile %s", playerUUID, profile.CuteName)
@@ -95,7 +101,8 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) error {
 		}
 		for _, chest := range treasures.Chests {
 			result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&store.DungeonChest{
-				ProfileID:     playerUUID,
+				PlayerUUID:    playerUUID,
+				ProfileID:     profile.ProfileID,
 				RunID:         chest.RunId,
 				ChestID:       chest.ChestId,
 				DungeonType:   runTier[chest.RunId].runType,
@@ -110,7 +117,7 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) error {
 			})
 			if result.Error != nil {
 				log.Println("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
-				return result.Error
+				return skipped, inserted, result.Error
 			}
 			if result.RowsAffected == 0 {
 				skipped++
@@ -120,6 +127,36 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) error {
 		}
 	}
 
-	log.Printf("Saved data for player %s: %d new chests (%d already recorded)\n", playerUUID, inserted, skipped)
-	return nil
+	return skipped, inserted, err
+}
+
+func insertDungeonStats(db *gorm.DB, playerUUID string, profiles []Profile) (skipped, inserted int, err error) {
+	for _, profile := range profiles {
+		player := profile.Members[playerUUID]
+
+		classExp := make(map[string]float32)
+		for k, e := range player.Dungeons.PlayerClasses {
+			classExp[k] = e.Experience
+		}
+
+		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&store.DungeonStats{
+			ProfileID:                      profile.ProfileID,
+			PlayerUUID:                     playerUUID,
+			CatacombsExperience:            player.Dungeons.DungeonTypes.Catacombs.Experience,
+			Secrets:                        player.Dungeons.Secrets,
+			CatacombsTierCompletions:       player.Dungeons.DungeonTypes.Catacombs.TierCompletions,
+			MasterCatacombsTierCompletions: player.Dungeons.DungeonTypes.MasterCatacombs.TierCompletions,
+			ClassExperience:                classExp,
+		})
+		if result.Error != nil {
+			log.Println("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
+			return skipped, inserted, result.Error
+		}
+		if result.RowsAffected == 0 {
+			skipped++
+		} else {
+			inserted++
+		}
+	}
+	return skipped, inserted, nil
 }

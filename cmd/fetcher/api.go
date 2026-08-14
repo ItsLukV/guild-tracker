@@ -118,40 +118,16 @@ type PlayerData struct {
 		} `json:"treasures"`
 		DungeonTypes struct {
 			Catacombs struct {
-				TierCompletions map[TierCompletions]float32 `json:"tier_completions"`
-				Experience      float32                     `json:"experience"`
+				TierCompletions map[string]float32 `json:"tier_completions"`
+				Experience      float32            `json:"experience"`
 			} `json:"catacombs"`
 			MasterCatacombs struct {
-				TierCompletions map[TierCompletions]float32 `json:"tier_completions"`
+				TierCompletions map[string]float32 `json:"tier_completions"`
 			} `json:"master_catacombs"`
 		} `json:"dungeon_types"`
-		PlayerClasses map[PlayerClasses]struct {
+		PlayerClasses map[string]struct {
 			Experience float32 `json:"experience"`
 		} `json:"player_classes"`
 		Secrets int `json:"secrets"`
 	} `json:"dungeons"`
 }
-
-type PlayerClasses = string
-
-const (
-	Healer  PlayerClasses = "healer"
-	Mage    PlayerClasses = "mage"
-	Berserk PlayerClasses = "berserk"
-	Archer  PlayerClasses = "archer"
-	Tank    PlayerClasses = "tank"
-)
-
-type TierCompletions string
-
-const (
-	total   TierCompletions = "total"
-	Zero    TierCompletions = "0"
-	First   TierCompletions = "1"
-	Second  TierCompletions = "2"
-	Third   TierCompletions = "3"
-	Fourth  TierCompletions = "4"
-	Fifth   TierCompletions = "5"
-	Sixth   TierCompletions = "6"
-	Seventh TierCompletions = "7"
-)

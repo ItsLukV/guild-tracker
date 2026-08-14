@@ -56,11 +56,24 @@ type Profile struct {
 	UpdatedAt  time.Time
 	DeletedAt  gorm.DeletedAt `gorm:"index"`
 	Chests     []DungeonChest `gorm:"foreignKey:ProfileID;references:ProfileID"`
+	Dungeons   []DungeonStats `gorm:"foreignKey:ProfileID;references:ProfileID"`
+}
+
+type DungeonStats struct {
+	gorm.Model
+	ProfileID                      string `gorm:"index:idx_dungeon_owner,priority:1"`
+	PlayerUUID                     string `gorm:"index:idx_dungeon_owner,priority:2"`
+	CatacombsExperience            float32
+	Secrets                        int
+	CatacombsTierCompletions       map[string]float32 `gorm:"serializer:json"`
+	MasterCatacombsTierCompletions map[string]float32 `gorm:"serializer:json"`
+	ClassExperience                map[string]float32 `gorm:"serializer:json"`
 }
 
 type DungeonChest struct {
 	gorm.Model
-	ProfileID     string `gorm:"index"`
+	ProfileID     string `gorm:"index:idx_chest_owner,priority:1"`
+	PlayerUUID    string `gorm:"index:idx_chest_owner,priority:2"`
 	RunID         string `gorm:"index"`
 	ChestID       string `gorm:"uniqueIndex"`
 	DungeonType   string
@@ -105,36 +118,9 @@ func OpenDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}); err != nil {
+	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}, DungeonStats{}); err != nil {
 		return nil, err
 	}
 
 	return db, nil
 }
-
-// func main() {
-// 	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
-// 	if err != nil {
-// 		panic("failed to connect database")
-// 	}
-
-// 	// Migrate the schema
-// 	db.AutoMigrate(&Player{}, &Chests{}, &Test{})
-
-// 	if err := db.Create(&Player{
-// 		MinecraftUUID: "test",
-// 		Chests:        []Chests{{ChestName: "chest"}, {ChestName: "chest2"}},
-// 		Test:          []Test{{Test: "e"}},
-// 	}).Error; err != nil {
-// 		fmt.Println("insert failed:", err) // UNIQUE constraint failed: players.uuid
-// 	}
-// 	db.Create(&[]Test{
-// 		{PlayerUUID: "test", Test: "e"},
-// 		{PlayerUUID: "testasd", Test: "f"},
-// 	})
-
-// 	var player Player
-// 	db.Preload("Test").Take(&player, "minecraft_uuid = ?", "test")
-// 	b, _ := json.MarshalIndent(player, "", "  ")
-// 	fmt.Println(string(b))
-// }
