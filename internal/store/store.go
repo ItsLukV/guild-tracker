@@ -84,7 +84,7 @@ type DungeonChest struct {
 	Paid          bool
 	Rerolls       int
 	Rewards       StringSlice `gorm:"type:text"`
-	// Price         int // TODO: added price paided for chest
+	Price         int         // TODO: added price paided for chest
 }
 
 func OpenDB() (*gorm.DB, error) {

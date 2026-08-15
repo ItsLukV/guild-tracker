@@ -113,7 +113,7 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skippe
 				Paid:          chest.Paid,
 				Rerolls:       chest.Rerolls,
 				Rewards:       chest.Rewards.Rewards,
-				// Price:   0,
+				Price:         ChestPrice(chest.TreasureType, runTier[chest.RunId].runTier, chest.Rewards.Rewards),
 			})
 			if result.Error != nil {
 				log.Println("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
