@@ -75,7 +75,7 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 				displayName, err := utils.UUIDToName(r.PlayerUUID)
 				if err != nil {
 					fmt.Println("error:", err)
-					return
+					displayName = r.PlayerUUID
 				}
 				fields = append(fields, &discordgo.MessageEmbedField{
 					Name:  fmt.Sprintf("#%d - %s", rank+1, displayName),

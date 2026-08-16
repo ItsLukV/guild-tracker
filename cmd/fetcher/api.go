@@ -28,6 +28,9 @@ func NewClient(apiKey string) *Client {
 }
 
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
 	url := baseURL + path
 	if len(query) > 0 {
 		url += "?" + query.Encode()
@@ -62,6 +65,32 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 		return fmt.Errorf("decode body: %w", err)
 	}
 	return nil
+}
+
+func fetchGuildUUIDs(ctx context.Context, client *Client, guildName string) ([]string, error) {
+	var out struct {
+		Success bool   `json:"success"`
+		Cause   string `json:"cause"`
+		Guild   *struct {
+			Members []struct {
+				UUID string `json:"uuid"`
+			} `json:"members"`
+		} `json:"guild"`
+	}
+	if err := client.get(ctx, "/v2/guild?name="+url.QueryEscape(guildName), nil, &out); err != nil {
+		log.Printf("%s", err)
+		return nil, err
+	}
+
+	if out.Guild == nil {
+		return nil, fmt.Errorf("no guild found: %q", guildName)
+	}
+
+	uuids := make([]string, len(out.Guild.Members))
+	for i, m := range out.Guild.Members {
+		uuids[i] = m.UUID
+	}
+	return uuids, nil
 }
 
 type ProfilesResponse struct {

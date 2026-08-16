@@ -5,27 +5,28 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-var uuids = []string{
-	"74e8ed7b7ffb4d61ab59cfd42c086a42", // LukV
-	"5ef04c7a95ae4c9396cefe925e4d5833", // EmilMZ
-}
-
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	client := NewClient(os.Getenv("HYPIXEL_API_KEY"))
 
 	db, err := store.OpenDB()
 	if err != nil {
 		log.Printf("Failed to open db: %v\n", err)
+	}
+
+	uuids, err := fetchGuildUUIDs(ctx, client, "Specialstyrken")
+	if err != nil {
+		log.Printf("Failed to fetch guild members: %s", err)
 	}
 
 	if err := checkForMissingPlayers(db, uuids); err != nil {
@@ -49,7 +50,7 @@ func main() {
 			skipped, inserted, _ = insertDungeonStats(db, p, out.Profiles)
 			outSkipped += skipped
 			outInserted += inserted
-			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", p, inserted, skipped)
+			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", p, outInserted, outSkipped)
 
 		}
 	}
