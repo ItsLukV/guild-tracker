@@ -54,6 +54,9 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	var embed *discordgo.MessageEmbed
+	if _, ok := m["leaderboard"]; !ok {
+		return
+	}
 	switch m["leaderboard"].StringValue() {
 	case "Coins Spent":
 		{
