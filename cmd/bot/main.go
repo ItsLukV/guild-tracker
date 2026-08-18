@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -18,6 +19,14 @@ var commands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "loss",
 		Description: "Check a players loss",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "player",
+				Description: "Player Username",
+				Required:    true,
+			},
+		},
 	},
 	{
 		Name:        "leaderboard",
@@ -98,13 +107,36 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 }
 
 func loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
 	type Result struct {
 		DungeonType string
 		DungeonTier int
 		Total       int
 	}
 
-	uuid := "5ef04c7a95ae4c9396cefe925e4d5833"
+	opts := i.ApplicationCommandData().Options
+	m := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(opts))
+	for _, opt := range opts {
+		m[opt.Name] = opt
+	}
+
+	opt, ok := m["player"]
+	if !ok {
+		msg := "Failed to load command parameter"
+		sendFailedEmbed(msg, s, i)
+		return
+	}
+
+	mojang, err := utils.UsernameToUUID(context.Background(), opt.StringValue())
+	if err != nil {
+		msg := fmt.Sprintf("Found no data for %s", opt.StringValue())
+		sendFailedEmbed(msg, s, i)
+		log.Println("Failed converting username to uuid\n%s", err)
+	}
+	uuid := mojang.ID
 
 	var results []Result
 	db.Model(&store.DungeonChest{}).
@@ -124,7 +156,9 @@ func loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	displayName, err := utils.UUIDToName(uuid)
 	if err != nil {
-		fmt.Println("error:", err)
+		log.Println("error:", err)
+		msg := fmt.Sprintf("Found no minecraft account with the uuid: %s", uuid)
+		sendFailedEmbed(msg, s, i)
 		return
 	}
 
@@ -142,16 +176,25 @@ func loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Embeds: []*discordgo.MessageEmbed{embed},
-		},
+	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Embeds: &[]*discordgo.MessageEmbed{embed},
 	})
 	if err != nil {
 		log.Printf("failed to respond to interaction: %v", err)
 	}
 
+}
+
+func sendFailedEmbed(msg string, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	embed := &discordgo.MessageEmbed{
+		Title:       "Leaderboard - Coins Spent",
+		Color:       0xfc0000,
+		Description: msg,
+	}
+
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Embeds: &[]*discordgo.MessageEmbed{embed},
+	})
 }
 
 func main() {
