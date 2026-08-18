@@ -43,12 +43,17 @@ var commands = []*discordgo.ApplicationCommand{
 			},
 		},
 	},
+	{
+		Name:        "inactivity",
+		Description: "Finds inactivity in the guild",
+		// Options:     []*discordgo.ApplicationCommandOption{},
+	},
 }
 
-// handlers maps each command name to the function that runs it.
 var handlers = map[string]func(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate){
 	"loss":        loss,
 	"leaderboard": leaderboard,
+	"inactivity":  inactivity,
 }
 
 func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -183,6 +188,25 @@ func loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 		log.Printf("failed to respond to interaction: %v", err)
 	}
 
+}
+
+func inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+	var results []struct {
+		Month string
+		Total int
+	}
+	err := db.Model(&store.Gexp{}).
+		Select("MONTH(ts) AS month, SUM(gexp) AS total, player_uuid").
+		Where("YEAR(ts) = ?", time.Now().Year()).
+		Group("MONTH(ts), player_uuid").
+		Order("month").
+		Scan(&results).Error
+	if err != nil {
+		sendFailedEmbed("Failed to create the list", s, i)
+	}
 }
 
 func sendFailedEmbed(msg string, s *discordgo.Session, i *discordgo.InteractionCreate) {
