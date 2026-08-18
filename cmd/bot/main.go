@@ -103,6 +103,10 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 				Title:  "Leaderboard - Coins Spent",
 				Color:  0xf1c40f,
 				Fields: fields,
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: "Requested by " + i.Member.User.Username,
+				},
+				Timestamp: time.Now().Format(time.RFC3339),
 			}
 		}
 	}
@@ -194,18 +198,72 @@ func inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreat
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
+
 	var results []struct {
-		Month string
-		Total int
+		PlayerUUID string
+		Total      int
 	}
+
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	startOfNextMonth := startOfMonth.AddDate(0, 1, 0)
+
 	err := db.Model(&store.Gexp{}).
-		Select("MONTH(ts) AS month, SUM(gexp) AS total, player_uuid").
-		Where("YEAR(ts) = ?", time.Now().Year()).
-		Group("MONTH(ts), player_uuid").
-		Order("month").
+		Select("player_uuid, SUM(gexp) AS total").
+		Where("ts >= ? AND ts < ?", startOfMonth, startOfNextMonth).
+		Group("player_uuid").
+		Order("total").
 		Scan(&results).Error
 	if err != nil {
 		sendFailedEmbed("Failed to create the list", s, i)
+		return
+	}
+
+	title := fmt.Sprintf("Inactivity - %s - %s",
+		startOfMonth.Format("2006-01-02"), startOfNextMonth.Format("2006-01-02"))
+
+	const perPage = 10
+	var pages []*discordgo.MessageEmbed
+	for start := 0; start < len(results); start += perPage {
+		end := start + perPage
+		if end > len(results) {
+			end = len(results)
+		}
+
+		var fields []*discordgo.MessageEmbedField
+		for idx := start; idx < end; idx++ {
+			r := results[idx]
+			name, err := utils.UUIDToName(r.PlayerUUID)
+			if err != nil {
+				name = r.PlayerUUID
+			}
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:  fmt.Sprintf("#%d - %s", idx+1, name),
+				Value: utils.ShortNumber(r.Total),
+			})
+		}
+
+		pages = append(pages, &discordgo.MessageEmbed{
+			Title:  title,
+			Color:  0x00ff00,
+			Fields: fields,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: "Requested by " + i.Member.User.Username,
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		})
+	}
+
+	if len(pages) == 0 {
+		pages = append(pages, &discordgo.MessageEmbed{
+			Title:       title,
+			Description: "No activity data for this month.",
+			Color:       0x00ff00,
+		})
+	}
+
+	if err := pg.EditWithPages(s, i, pages); err != nil {
+		log.Println("inactivity: paginate error:", err)
 	}
 }
 
@@ -241,7 +299,11 @@ func main() {
 		log.Fatalf("failed to create Discord session: %v", err)
 	}
 
+	session.AddHandler(pg.handleButton)
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		if i.Type != discordgo.InteractionApplicationCommand {
+			return
+		}
 		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
 			h(db, s, i)
 		}
@@ -255,6 +317,8 @@ func main() {
 		log.Fatalf("failed to open connection: %v", err)
 	}
 	defer session.Close()
+
+	pg.StartJanitor(session)
 
 	log.Println("Registering commands...")
 	registered := make([]*discordgo.ApplicationCommand, len(commands))
@@ -270,6 +334,12 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
+
+	log.Println("Cleaning up paginators...")
+	pg.mu.Lock()
+	pg.ttl = 0
+	pg.mu.Unlock()
+	pg.sweep(session)
 
 	log.Println("Removing commands...")
 	for _, cmd := range registered {
