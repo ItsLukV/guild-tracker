@@ -1,0 +1,38 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guild-tracker-bot
+    command: ["/app/bot"]
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  fetcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guild-tracker-fetcher
+    env_file:
+      - .env
+    entrypoint: ["sleep", "infinity"]
+    restart: unless-stopped
+    labels:
+      ofelia.enabled: "true"
+
+      ofelia.job-exec.fetcher-hourly.schedule: "@hourly"
+      ofelia.job-exec.fetcher-hourly.command: "/app/fetcher --mode hourly"
+
+      ofelia.job-exec.fetcher-daily.schedule: "@daily"
+      ofelia.job-exec.fetcher-daily.command: "/app/fetcher --mode daily"
+
+  scheduler:
+    image: mcuadros/ofelia:latest
+    container_name: guild-tracker-scheduler
+    depends_on:
+      - fetcher
+    command: daemon --docker
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
