@@ -45,6 +45,7 @@ type Player struct {
 	UpdatedAt        time.Time
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	Profiles         []Profile      `gorm:"foreignKey:PlayerUUID;references:MinecraftUUID"`
+	Gexp             []Gexp         `gorm:"foreignKey:PlayerUUID;references:MinecraftUUID"`
 }
 
 type Profile struct {
@@ -87,6 +88,13 @@ type DungeonChest struct {
 	Price         int         // TODO: added price paided for chest
 }
 
+type Gexp struct {
+	gorm.Model
+	PlayerUUID string    `gorm:"uniqueIndex:idx_gexp_owner,priority:1"`
+	Ts         time.Time `gorm:"uniqueIndex:idx_gexp_owner,priority:2"`
+	Gexp       int
+}
+
 func OpenDB() (*gorm.DB, error) {
 	driverName := os.Getenv("DB_DRIVER")
 	if driverName == "" {
@@ -118,7 +126,7 @@ func OpenDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}, DungeonStats{}); err != nil {
+	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}, &DungeonStats{}, &Gexp{}); err != nil {
 		return nil, err
 	}
 

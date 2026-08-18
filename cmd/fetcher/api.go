@@ -67,30 +67,47 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	return nil
 }
 
-func fetchGuildUUIDs(ctx context.Context, client *Client, guildName string) ([]string, error) {
-	var out struct {
-		Success bool   `json:"success"`
-		Cause   string `json:"cause"`
-		Guild   *struct {
-			Members []struct {
-				UUID string `json:"uuid"`
-			} `json:"members"`
-		} `json:"guild"`
+const dateLayout = "2006-01-02"
+
+type Date time.Time
+
+func (d *Date) UnmarshalText(b []byte) error {
+	t, err := time.Parse(dateLayout, string(b))
+	if err != nil {
+		return err
 	}
+	*d = Date(t)
+	return nil
+}
+
+func (d Date) MarshalText() ([]byte, error) {
+	return []byte(time.Time(d).Format(dateLayout)), nil
+}
+
+type guildInfo struct {
+	Success bool   `json:"success"`
+	Cause   string `json:"cause"`
+	Guild   *struct {
+		Members []struct {
+			UUID       string       `json:"uuid"`
+			Rank       string       `json:"rank"`
+			ExpHistory map[Date]int `json:"expHistory"`
+		} `json:"members"`
+	} `json:"guild"`
+}
+
+func fetchGuildUUIDs(ctx context.Context, client *Client, guildName string) (guildInfo, error) {
+	var out guildInfo
 	if err := client.get(ctx, "/v2/guild?name="+url.QueryEscape(guildName), nil, &out); err != nil {
 		log.Printf("%s", err)
-		return nil, err
+		return guildInfo{}, err
 	}
 
 	if out.Guild == nil {
-		return nil, fmt.Errorf("no guild found: %q", guildName)
+		return guildInfo{}, fmt.Errorf("no guild found: %q", guildName)
 	}
 
-	uuids := make([]string, len(out.Guild.Members))
-	for i, m := range out.Guild.Members {
-		uuids[i] = m.UUID
-	}
-	return uuids, nil
+	return out, nil
 }
 
 type ProfilesResponse struct {

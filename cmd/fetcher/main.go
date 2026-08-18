@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"gorm.io/gorm"
@@ -15,6 +17,10 @@ import (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	mode := flag.String("mode", "", "what to fetch: hourly | daily")
+	flag.Parse()
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	client := NewClient(os.Getenv("HYPIXEL_API_KEY"))
@@ -24,47 +30,62 @@ func main() {
 		log.Printf("Failed to open db: %v\n", err)
 	}
 
-	uuids, err := fetchGuildUUIDs(ctx, client, "Specialstyrken")
+	members, err := fetchGuildUUIDs(ctx, client, "Specialstyrken")
 	if err != nil {
 		log.Printf("Failed to fetch guild members: %s", err)
 	}
 
-	if err := checkForMissingPlayers(db, uuids); err != nil {
-		log.Panicf("Failed to check for missing players: %s", err)
+	uuids, err := checkForMissingPlayers(db, members)
+	if err != nil {
+		log.Fatalf("Failed to check for missing players: %s", err)
 	}
 
-	for _, p := range uuids {
-		var out ProfilesResponse
-		q := url.Values{"uuid": {p}}
-		if err := client.get(ctx, "/v2/skyblock/profiles", q, &out); err != nil {
-			log.Printf("%s", err)
-		} else {
-			if err := checkForMissingProfiles(db, p, out.Profiles); err != nil {
-				log.Printf("Failed to check for missing profiles for %s:\n %s", p, err)
-			}
-
-			var outSkipped, outInserted int
-			skipped, inserted, _ := insertChestData(db, p, out.Profiles)
-			outSkipped += skipped
-			outInserted += inserted
-			skipped, inserted, _ = insertDungeonStats(db, p, out.Profiles)
-			outSkipped += skipped
-			outInserted += inserted
-			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", p, outInserted, outSkipped)
-
-		}
+	switch *mode {
+	case "hourly":
+		fetchHourly(ctx, db, client, uuids)
+	case "daily":
+		err = insertGEXP(db, members)
+	default:
+		log.Fatalf("unknown mode %q (want hourly or daily)", *mode)
 	}
 
 }
 
-func checkForMissingPlayers(db *gorm.DB, uuids []string) error {
-	players := make([]store.Player, len(uuids))
-	for i, id := range uuids {
-		players[i] = store.Player{MinecraftUUID: id}
+func checkForMissingPlayers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) {
+	players := make([]store.Player, len(guildInfo.Guild.Members))
+	for i, id := range guildInfo.Guild.Members {
+		players[i] = store.Player{MinecraftUUID: id.UUID}
 	}
-	return db.Clauses(clause.OnConflict{DoNothing: true}).
+	err := db.Clauses(clause.OnConflict{DoNothing: true}).
 		CreateInBatches(&players, 1000).
 		Error
+	return players, err
+}
+
+func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store.Player) {
+	for _, player := range uuids {
+		uuid := player.MinecraftUUID
+
+		var out ProfilesResponse
+		q := url.Values{"uuid": {uuid}}
+		if err := client.get(ctx, "/v2/skyblock/profiles", q, &out); err != nil {
+			log.Printf("%s", err)
+		} else {
+			if err := checkForMissingProfiles(db, uuid, out.Profiles); err != nil {
+				log.Printf("Failed to check for missing profiles for %s:\n %s", uuid, err)
+			}
+
+			var outSkipped, outInserted int
+			skipped, inserted, _ := insertChestData(db, uuid, out.Profiles)
+			outSkipped += skipped
+			outInserted += inserted
+			skipped, inserted, _ = insertDungeonStats(db, uuid, out.Profiles)
+			outSkipped += skipped
+			outInserted += inserted
+			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", uuid, outInserted, outSkipped)
+
+		}
+	}
 }
 
 func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile) error {
@@ -85,7 +106,7 @@ func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile)
 func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skipped, inserted int, err error) {
 	for _, profile := range profiles {
 		if _, ok := profile.Members[playerUUID]; !ok {
-			log.Println("Failed to get playerdata for %s in profile %s", playerUUID, profile.CuteName)
+			log.Printf("Failed to get playerdata for %s in profile %s", playerUUID, profile.CuteName)
 		}
 
 		treasures := profile.Members[playerUUID].Dungeons.Treasures
@@ -117,7 +138,7 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skippe
 				Price:         ChestPrice(chest.TreasureType, runTier[chest.RunId].runTier, chest.Rewards.Rewards),
 			})
 			if result.Error != nil {
-				log.Println("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
+				log.Printf("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
 				return skipped, inserted, result.Error
 			}
 			if result.RowsAffected == 0 {
@@ -150,7 +171,7 @@ func insertDungeonStats(db *gorm.DB, playerUUID string, profiles []Profile) (ski
 			ClassExperience:                classExp,
 		})
 		if result.Error != nil {
-			log.Println("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
+			log.Printf("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
 			return skipped, inserted, result.Error
 		}
 		if result.RowsAffected == 0 {
@@ -160,4 +181,22 @@ func insertDungeonStats(db *gorm.DB, playerUUID string, profiles []Profile) (ski
 		}
 	}
 	return skipped, inserted, nil
+}
+
+func insertGEXP(db *gorm.DB, guildInfo guildInfo) error {
+	for _, member := range guildInfo.Guild.Members {
+		for k, v := range member.ExpHistory {
+			if err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "player_uuid"}, {Name: "ts"}},
+				DoUpdates: clause.AssignmentColumns([]string{"gexp"}),
+			}).Create(&store.Gexp{
+				PlayerUUID: member.UUID,
+				Ts:         time.Time(k),
+				Gexp:       v,
+			}).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
