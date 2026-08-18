@@ -184,6 +184,7 @@ func insertDungeonStats(db *gorm.DB, playerUUID string, profiles []Profile) (ski
 }
 
 func insertGEXP(db *gorm.DB, guildInfo guildInfo) error {
+	log.Println("Starting to insert guild info")
 	for _, member := range guildInfo.Guild.Members {
 		for k, v := range member.ExpHistory {
 			if err := db.Clauses(clause.OnConflict{
@@ -194,9 +195,11 @@ func insertGEXP(db *gorm.DB, guildInfo guildInfo) error {
 				Ts:         time.Time(k),
 				Gexp:       v,
 			}).Error; err != nil {
+				log.Println("fAILED with inserting guild info\n%s", err)
 				return err
 			}
 		}
 	}
+	log.Println("Done with inserting guild info")
 	return nil
 }
