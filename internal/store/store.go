@@ -40,6 +40,8 @@ func (s *StringSlice) Scan(src any) error {
 
 type Player struct {
 	MinecraftUUID    string `gorm:"primaryKey"`
+	Username         string
+	InGuild          bool `gorm:"default:true"`
 	DiscordSnowflake string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time

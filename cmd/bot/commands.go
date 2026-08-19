@@ -71,13 +71,15 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 		{
 			type Result struct {
 				PlayerUUID string
+				Username   string
 				Total      int
 			}
 			var results []Result
 			db.Model(&store.DungeonChest{}).
-				Select("player_uuid, SUM(price) as total").
-				Where("paid = ?", true).
-				Group("player_uuid").
+				Select("dungeon_chests.player_uuid, players.username, SUM(dungeon_chests.price) as total").
+				Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
+				Where("dungeon_chests.paid = ? AND players.in_guild = ?", true, true).
+				Group("dungeon_chests.player_uuid, players.username").
 				Order("total DESC").
 				Scan(&results)
 
@@ -93,8 +95,8 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 				var fields []*discordgo.MessageEmbedField
 				for idx := start; idx < end; idx++ {
 					r := results[idx]
-					name, err := utils.UUIDToName(r.PlayerUUID)
-					if err != nil {
+					name := r.Username
+					if name == "" {
 						name = r.PlayerUUID
 					}
 					fields = append(fields, &discordgo.MessageEmbedField{
@@ -206,6 +208,7 @@ func inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreat
 
 	var results []struct {
 		PlayerUUID string
+		Username   string
 		Total      int
 	}
 
@@ -214,9 +217,10 @@ func inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreat
 	startOfNextMonth := startOfMonth.AddDate(0, 1, 0)
 
 	err := db.Model(&store.Gexp{}).
-		Select("player_uuid, SUM(gexp) AS total").
-		Where("ts >= ? AND ts < ?", startOfMonth, startOfNextMonth).
-		Group("player_uuid").
+		Select("gexps.player_uuid, players.username, SUM(gexps.gexp) AS total").
+		Joins("JOIN players ON players.minecraft_uuid = gexps.player_uuid").
+		Where("gexps.ts >= ? AND gexps.ts < ? AND players.in_guild = ?", startOfMonth, startOfNextMonth, true).
+		Group("gexps.player_uuid, players.username").
 		Order("total").
 		Scan(&results).Error
 	if err != nil {
@@ -238,8 +242,8 @@ func inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreat
 		var fields []*discordgo.MessageEmbedField
 		for idx := start; idx < end; idx++ {
 			r := results[idx]
-			name, err := utils.UUIDToName(r.PlayerUUID)
-			if err != nil {
+			name := r.Username
+			if name == "" {
 				name = r.PlayerUUID
 			}
 			fields = append(fields, &discordgo.MessageEmbedField{

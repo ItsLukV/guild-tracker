@@ -22,34 +22,57 @@ func UUIDToName(uuid string) (string, error) {
 	uuid = strings.ReplaceAll(uuid, "-", "")
 
 	url := "https://sessionserver.mojang.com/session/minecraft/profile/" + uuid
-
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// continue below
-	case http.StatusNoContent, http.StatusNotFound:
-		return "", fmt.Errorf("no profile found for uuid %q", uuid)
-	default:
-		return "", fmt.Errorf("unexpected status: %s", resp.Status)
-	}
+	const maxAttempts = 5
+	backoff := time.Second
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("reading body: %w", err)
-	}
+	for attempt := 1; ; attempt++ {
+		resp, err := client.Get(url)
+		if err != nil {
+			return "", fmt.Errorf("request failed: %w", err)
+		}
 
-	var profile MojangProfile
-	if err := json.Unmarshal(body, &profile); err != nil {
-		return "", fmt.Errorf("parsing json: %w", err)
-	}
+		if resp.StatusCode == http.StatusTooManyRequests {
+			resp.Body.Close()
+			if attempt >= maxAttempts {
+				return "", fmt.Errorf("rate limited after %d attempts", attempt)
+			}
+			wait := backoff
+			if ra := resp.Header.Get("Retry-After"); ra != "" {
+				if secs, err := strconv.Atoi(ra); err == nil {
+					wait = time.Duration(secs) * time.Second
+				}
+			}
+			time.Sleep(wait)
+			backoff *= 2
+			continue
+		}
 
-	return profile.Name, nil
+		switch resp.StatusCode {
+		case http.StatusOK:
+			// continue below
+		case http.StatusNoContent, http.StatusNotFound:
+			resp.Body.Close()
+			return "", fmt.Errorf("no profile found for uuid %q", uuid)
+		default:
+			resp.Body.Close()
+			return "", fmt.Errorf("unexpected status: %s", resp.Status)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return "", fmt.Errorf("reading body: %w", err)
+		}
+
+		var profile MojangProfile
+		if err := json.Unmarshal(body, &profile); err != nil {
+			return "", fmt.Errorf("parsing json: %w", err)
+		}
+
+		return profile.Name, nil
+	}
 }
 
 func UsernameToUUID(ctx context.Context, username string) (*MojangProfile, error) {

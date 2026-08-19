@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ItsLukV/guild-tracker/internal/store"
+	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -35,15 +37,17 @@ func main() {
 		log.Printf("Failed to fetch guild members: %s", err)
 	}
 
-	uuids, err := checkForMissingPlayers(db, members)
+	uuids, err := syncGuildMembers(db, members)
 	if err != nil {
-		log.Fatalf("Failed to check for missing players: %s", err)
+		log.Fatalf("Failed to sync guild members: %s", err)
 	}
 
 	switch *mode {
 	case "hourly":
+		log.Println("Started hourly fetching")
 		fetchHourly(ctx, db, client, uuids)
 	case "daily":
+		log.Println("Started daily fetching")
 		err = insertGEXP(db, members)
 	default:
 		log.Fatalf("unknown mode %q (want hourly or daily)", *mode)
@@ -51,14 +55,53 @@ func main() {
 
 }
 
-func checkForMissingPlayers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) {
-	players := make([]store.Player, len(guildInfo.Guild.Members))
-	for i, id := range guildInfo.Guild.Members {
-		players[i] = store.Player{MinecraftUUID: id.UUID}
+func syncGuildMembers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) {
+	uuids := make([]string, len(guildInfo.Guild.Members))
+	for i, m := range guildInfo.Guild.Members {
+		uuids[i] = m.UUID
 	}
-	err := db.Clauses(clause.OnConflict{DoNothing: true}).
-		CreateInBatches(&players, 1000).
-		Error
+
+	if err := db.Model(&store.Player{}).
+		Where("in_guild = ? AND minecraft_uuid NOT IN ?", true, uuids).
+		Update("in_guild", false).Error; err != nil {
+		return nil, fmt.Errorf("mark departed players: %w", err)
+	}
+
+	var existing []store.Player
+	if err := db.Where("minecraft_uuid IN ?", uuids).Find(&existing).Error; err != nil {
+		return nil, fmt.Errorf("load existing players: %w", err)
+	}
+	existingByUUID := make(map[string]store.Player, len(existing))
+	for _, p := range existing {
+		existingByUUID[p.MinecraftUUID] = p
+	}
+
+	const lookupSpacing = 1200 * time.Millisecond
+
+	players := make([]store.Player, len(guildInfo.Guild.Members))
+	for i, m := range guildInfo.Guild.Members {
+		p, ok := existingByUUID[m.UUID]
+		if !ok || p.Username == "" {
+			if i > 0 {
+				time.Sleep(lookupSpacing)
+			}
+			name, err := utils.UUIDToName(m.UUID)
+			if err != nil {
+				log.Printf("failed to resolve username for %s: %s", m.UUID, err)
+				name = p.Username
+			} else {
+				p.Username = name
+			}
+		}
+		p.MinecraftUUID = m.UUID
+		p.InGuild = true
+		players[i] = p
+	}
+
+	err := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "minecraft_uuid"}},
+		DoUpdates: clause.AssignmentColumns([]string{"username", "in_guild"}),
+	}).CreateInBatches(&players, 1000).Error
 	return players, err
 }
 
