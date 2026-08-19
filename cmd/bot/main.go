@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/bwmarrin/discordgo"
@@ -17,6 +18,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
+
+	marketCache.StartAutoRefresh(24*time.Hour, log.Printf)
 
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
