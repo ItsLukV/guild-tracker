@@ -15,7 +15,7 @@ jobs:
           tags: tag:ci
       - name: Do the deploy thing
         run: |
-          ssh -o "StrictHostKeyChecking=accept-new" root@${{ secrets.VPS_HOST }} '
+          ssh -o "StrictHostKeyChecking=accept-new" ${{ secrets.VPS_HOST }} '
             set -e
             cd ${{ secrets.VPS_PROJECT_PATH }}
             git pull
