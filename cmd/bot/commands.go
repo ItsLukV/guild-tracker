@@ -317,7 +317,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	mojang, err := utils.UsernameToUUID(context.Background(), opt.StringValue())
-	if err != nil {
+	if err != nil || mojang == nil {
 		msg := fmt.Sprintf("Found no data for %s", opt.StringValue())
 		sendFailedEmbed(msg, s, i)
 		log.Println("Failed converting username to uuid\n%s", err)
