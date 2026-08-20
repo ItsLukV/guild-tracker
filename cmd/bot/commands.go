@@ -364,6 +364,12 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var chests []store.DungeonChest
 	db.Where("paid = ? AND player_uuid = ?", true, uuid).Find(&chests)
 
+	var runs int64
+	db.Model(&store.DungeonChest{}).
+		Where("player_uuid = ?", uuid).
+		Distinct("run_id").
+		Count(&runs)
+
 	type itemStat struct {
 		count int
 		value int
@@ -426,7 +432,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Chest Items Report",
-		Description: fmt.Sprintf("Item value for %s: %s", displayName, utils.ShortNumber(totalValue)),
+		Description: fmt.Sprintf("Item value for %s: %s\nRuns: %v", displayName, utils.ShortNumber(totalValue), runs),
 		Color:       0x1abc9c,
 		Fields:      out,
 		Thumbnail: &discordgo.MessageEmbedThumbnail{
