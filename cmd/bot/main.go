@@ -55,13 +55,8 @@ func main() {
 	pg.StartJanitor(session)
 
 	log.Println("Registering commands...")
-	registered := make([]*discordgo.ApplicationCommand, len(commands))
-	for idx, cmd := range commands {
-		c, err := session.ApplicationCommandCreate(session.State.User.ID, guildID, cmd)
-		if err != nil {
-			log.Fatalf("failed to create command %q: %v", cmd.Name, err)
-		}
-		registered[idx] = c
+	if _, err := session.ApplicationCommandBulkOverwrite(session.State.User.ID, guildID, commands); err != nil {
+		log.Fatalf("failed to register commands: %v", err)
 	}
 
 	log.Println("Bot is running. Press Ctrl+C to exit.")
@@ -74,13 +69,6 @@ func main() {
 	pg.ttl = 0
 	pg.mu.Unlock()
 	pg.sweep(session)
-
-	log.Println("Removing commands...")
-	for _, cmd := range registered {
-		if err := session.ApplicationCommandDelete(session.State.User.ID, guildID, cmd.ID); err != nil {
-			log.Printf("failed to delete command %q: %v", cmd.Name, err)
-		}
-	}
 
 	log.Println("Shutting down.")
 
