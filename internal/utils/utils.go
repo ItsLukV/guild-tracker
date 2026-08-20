@@ -107,7 +107,7 @@ func UsernameToUUID(ctx context.Context, username string) (*MojangProfile, error
 func PlayerHeadURL(uuid string, size int, overlay bool) string {
 	uuid = strings.ReplaceAll(uuid, "-", "")
 
-	url := fmt.Sprintf("https://crafatar.com/avatars/%s?size=%d", uuid, size)
+	url := fmt.Sprintf("https://api.mcheads.org/head/%s/%d", uuid, size)
 	if overlay {
 		url += "&overlay"
 	}
