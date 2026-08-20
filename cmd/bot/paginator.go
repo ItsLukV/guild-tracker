@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -78,7 +77,7 @@ func (p *paginator) handleButton(s *discordgo.Session, i *discordgo.InteractionC
 		},
 	})
 	if err != nil {
-		log.Println("paginator: update error:", err)
+		logger.Errorf("paginator: update error: %v", err)
 	}
 }
 
@@ -172,7 +171,7 @@ func (p *paginator) sweep(s *discordgo.Session) {
 			Components: &empty,
 		})
 		if err != nil {
-			log.Printf("paginator: strip buttons on %s: %v", d.msgID, err)
+			logger.Errorf("paginator: strip buttons on %s: %v", d.msgID, err)
 		}
 	}
 }

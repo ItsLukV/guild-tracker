@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -19,7 +18,7 @@ type Client struct {
 
 func NewClient(apiKey string) *Client {
 	if apiKey == "" {
-		log.Panicln("No api key")
+		logger.Panic("No api key")
 	}
 	return &Client{
 		http:   &http.Client{Timeout: 15 * time.Second},
@@ -99,7 +98,7 @@ type guildInfo struct {
 func fetchGuildUUIDs(ctx context.Context, client *Client, guildName string) (guildInfo, error) {
 	var out guildInfo
 	if err := client.get(ctx, "/v2/guild?name="+url.QueryEscape(guildName), nil, &out); err != nil {
-		log.Printf("%s", err)
+		logger.Errorf("%v", err)
 		return guildInfo{}, err
 	}
 

@@ -8,7 +8,6 @@ import (
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
-	"log"
 	"sort"
 	"time"
 )
@@ -169,7 +168,7 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 
 			if err := pg.EditWithPages(s, i, pages); err != nil {
-				log.Println("leaderboard: paginate error:", err)
+				logger.Errorf("leaderboard: paginate error: %v", err)
 			}
 		}
 	case "Chest Profit":
@@ -248,7 +247,7 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 
 			if err := pg.EditWithPages(s, i, pages); err != nil {
-				log.Println("leaderboard: paginate error:", err)
+				logger.Errorf("leaderboard: paginate error: %v", err)
 			}
 		}
 	}
@@ -282,7 +281,7 @@ func loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err != nil || mojang == nil {
 		msg := fmt.Sprintf("Found no data for %s", opt.StringValue())
 		sendFailedEmbed(msg, s, i)
-		log.Printf("Failed converting username to uuid\n%s", err)
+		logger.Errorf("Failed converting username to uuid: %v", err)
 		return
 	}
 	uuid := mojang.ID
@@ -305,7 +304,7 @@ func loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	displayName, err := utils.UUIDToName(uuid)
 	if err != nil {
-		log.Println("error:", err)
+		logger.Errorf("failed to resolve uuid to username: %v", err)
 		msg := fmt.Sprintf("Found no minecraft account with the uuid: %s", uuid)
 		sendFailedEmbed(msg, s, i)
 		return
@@ -329,7 +328,7 @@ func loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Embeds: &[]*discordgo.MessageEmbed{embed},
 	})
 	if err != nil {
-		log.Printf("failed to respond to interaction: %v", err)
+		logger.Errorf("failed to respond to interaction: %v", err)
 	}
 
 }
@@ -356,7 +355,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err != nil || mojang == nil {
 		msg := fmt.Sprintf("Found no data for %s", opt.StringValue())
 		sendFailedEmbed(msg, s, i)
-		log.Printf("Failed converting username to uuid\n%s", err)
+		logger.Errorf("Failed converting username to uuid: %v", err)
 		return
 	}
 	uuid := mojang.ID
@@ -424,7 +423,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	displayName, err := utils.UUIDToName(uuid)
 	if err != nil {
-		log.Println("error:", err)
+		logger.Errorf("failed to resolve uuid to username: %v", err)
 		msg := fmt.Sprintf("Found no minecraft account with the uuid: %s", uuid)
 		sendFailedEmbed(msg, s, i)
 		return
@@ -448,7 +447,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Embeds: &[]*discordgo.MessageEmbed{embed},
 	})
 	if err != nil {
-		log.Printf("failed to respond to interaction: %v", err)
+		logger.Errorf("failed to respond to interaction: %v", err)
 	}
 }
 
@@ -523,7 +522,7 @@ func inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	if err := pg.EditWithPages(s, i, pages); err != nil {
-		log.Println("inactivity: paginate error:", err)
+		logger.Errorf("inactivity: paginate error: %v", err)
 	}
 }
 

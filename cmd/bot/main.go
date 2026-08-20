@@ -1,36 +1,40 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/ItsLukV/guild-tracker/internal/logging"
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/bwmarrin/discordgo"
+	"go.uber.org/zap"
 )
 
+var logger *zap.SugaredLogger
+
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	logger = logging.New()
+	defer logger.Sync()
 
 	db, err := store.OpenDB()
 	if err != nil {
-		log.Fatalf("open db: %v", err)
+		logger.Fatalf("open db: %v", err)
 	}
 
-	marketCache.StartAutoRefresh(24*time.Hour, log.Printf)
+	marketCache.StartAutoRefresh(24*time.Hour, logger.Errorf)
 
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
-		log.Fatal("DISCORD_TOKEN environment variable is not set")
+		logger.Fatal("DISCORD_TOKEN environment variable is not set")
 	}
 
 	guildID := os.Getenv("GUILD_ID")
 
 	session, err := discordgo.New("Bot " + token)
 	if err != nil {
-		log.Fatalf("failed to create Discord session: %v", err)
+		logger.Fatalf("failed to create Discord session: %v", err)
 	}
 
 	session.AddHandler(pg.handleButton)
@@ -44,32 +48,32 @@ func main() {
 	})
 
 	session.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("Logged in as %s#%s", r.User.Username, r.User.Discriminator)
+		logger.Infof("Logged in as %s#%s", r.User.Username, r.User.Discriminator)
 	})
 
 	if err := session.Open(); err != nil {
-		log.Fatalf("failed to open connection: %v", err)
+		logger.Fatalf("failed to open connection: %v", err)
 	}
 	defer session.Close()
 
 	pg.StartJanitor(session)
 
-	log.Println("Registering commands...")
+	logger.Info("Registering commands...")
 	if _, err := session.ApplicationCommandBulkOverwrite(session.State.User.ID, guildID, commands); err != nil {
-		log.Fatalf("failed to register commands: %v", err)
+		logger.Fatalf("failed to register commands: %v", err)
 	}
 
-	log.Println("Bot is running. Press Ctrl+C to exit.")
+	logger.Info("Bot is running. Press Ctrl+C to exit.")
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
-	log.Println("Cleaning up paginators...")
+	logger.Info("Cleaning up paginators...")
 	pg.mu.Lock()
 	pg.ttl = 0
 	pg.mu.Unlock()
 	pg.sweep(session)
 
-	log.Println("Shutting down.")
+	logger.Info("Shutting down.")
 
 }

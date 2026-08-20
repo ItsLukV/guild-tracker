@@ -4,21 +4,25 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/ItsLukV/guild-tracker/internal/logging"
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
+var logger *zap.SugaredLogger
+
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	logger = logging.New()
+	defer logger.Sync()
 
 	mode := flag.String("mode", "", "what to fetch: hourly | daily")
 	flag.Parse()
@@ -29,29 +33,29 @@ func main() {
 
 	db, err := store.OpenDB()
 	if err != nil {
-		log.Printf("Failed to open db: %v\n", err)
+		logger.Errorf("Failed to open db: %v", err)
 	}
 
 	members, err := fetchGuildUUIDs(ctx, client, "Specialstyrken")
 	if err != nil {
-		log.Printf("Failed to fetch guild members: %s", err)
+		logger.Errorf("Failed to fetch guild members: %v", err)
 	}
 
 	uuids, err := syncGuildMembers(db, members)
 	if err != nil {
-		log.Fatalf("Failed to sync guild members: %s", err)
+		logger.Fatalf("Failed to sync guild members: %v", err)
 	}
 
 	var runErr error
 	switch store.FetcherRunMode(*mode) {
 	case store.Hourly:
-		log.Println("Started hourly fetching")
+		logger.Info("Started hourly fetching")
 		fetchHourly(ctx, db, client, uuids)
 	case store.Daily:
-		log.Println("Started daily fetching")
+		logger.Info("Started daily fetching")
 		runErr = insertGEXP(db, members)
 	default:
-		log.Fatalf("unknown mode %q (want hourly or daily)", *mode)
+		logger.Fatalf("unknown mode %q (want hourly or daily)", *mode)
 	}
 
 	db.Clauses(clause.OnConflict{
@@ -97,7 +101,7 @@ func syncGuildMembers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) 
 			}
 			name, err := utils.UUIDToName(m.UUID)
 			if err != nil {
-				log.Printf("failed to resolve username for %s: %s", m.UUID, err)
+				logger.Errorf("failed to resolve username for %s: %v", m.UUID, err)
 				name = p.Username
 			} else {
 				p.Username = name
@@ -122,10 +126,10 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 		var out ProfilesResponse
 		q := url.Values{"uuid": {uuid}}
 		if err := client.get(ctx, "/v2/skyblock/profiles", q, &out); err != nil {
-			log.Printf("%s", err)
+			logger.Errorf("%v", err)
 		} else {
 			if err := checkForMissingProfiles(db, uuid, out.Profiles); err != nil {
-				log.Printf("Failed to check for missing profiles for %s:\n %s", uuid, err)
+				logger.Errorf("Failed to check for missing profiles for %s: %v", uuid, err)
 			}
 
 			var outSkipped, outInserted int
@@ -135,7 +139,7 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 			skipped, inserted, _ = insertDungeonStats(db, uuid, out.Profiles)
 			outSkipped += skipped
 			outInserted += inserted
-			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", player.Username, outInserted, outSkipped)
+			logger.Infof("Saved data for player %s: %d rows (%d already recorded)", player.Username, outInserted, outSkipped)
 		}
 	}
 }
@@ -158,7 +162,7 @@ func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile)
 func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skipped, inserted int, err error) {
 	for _, profile := range profiles {
 		if _, ok := profile.Members[playerUUID]; !ok {
-			log.Printf("Failed to get playerdata for %s in profile %s", playerUUID, profile.CuteName)
+			logger.Errorf("Failed to get playerdata for %s in profile %s", playerUUID, profile.CuteName)
 		}
 
 		treasures := profile.Members[playerUUID].Dungeons.Treasures
@@ -190,7 +194,7 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skippe
 				Price:         ChestPrice(chest.TreasureType, runTier[chest.RunId].runTier, chest.Rewards.Rewards),
 			})
 			if result.Error != nil {
-				log.Printf("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
+				logger.Errorf("Failed to insert Chest data for %s: %v", playerUUID, result.Error)
 				return skipped, inserted, result.Error
 			}
 			if result.RowsAffected == 0 {
@@ -223,7 +227,7 @@ func insertDungeonStats(db *gorm.DB, playerUUID string, profiles []Profile) (ski
 			ClassExperience:                classExp,
 		})
 		if result.Error != nil {
-			log.Printf("Failed to insert Chest data for %s\n%s", playerUUID, result.Error)
+			logger.Errorf("Failed to insert dungeon stats for %s: %v", playerUUID, result.Error)
 			return skipped, inserted, result.Error
 		}
 		if result.RowsAffected == 0 {
@@ -236,7 +240,7 @@ func insertDungeonStats(db *gorm.DB, playerUUID string, profiles []Profile) (ski
 }
 
 func insertGEXP(db *gorm.DB, guildInfo guildInfo) error {
-	log.Println("Starting to insert guild info")
+	logger.Info("Starting to insert guild info")
 	for _, member := range guildInfo.Guild.Members {
 		for k, v := range member.ExpHistory {
 			if err := db.Clauses(clause.OnConflict{
@@ -247,11 +251,11 @@ func insertGEXP(db *gorm.DB, guildInfo guildInfo) error {
 				Ts:         time.Time(k),
 				Gexp:       v,
 			}).Error; err != nil {
-				log.Println("fAILED with inserting guild info\n%s", err)
+				logger.Errorf("Failed to insert guild info: %v", err)
 				return err
 			}
 		}
 	}
-	log.Println("Done with inserting guild info")
+	logger.Info("Done with inserting guild info")
 	return nil
 }
