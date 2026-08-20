@@ -42,17 +42,27 @@ func main() {
 		log.Fatalf("Failed to sync guild members: %s", err)
 	}
 
-	switch *mode {
-	case "hourly":
+	var runErr error
+	switch store.FetcherRunMode(*mode) {
+	case store.Hourly:
 		log.Println("Started hourly fetching")
 		fetchHourly(ctx, db, client, uuids)
-	case "daily":
+	case store.Daily:
 		log.Println("Started daily fetching")
-		err = insertGEXP(db, members)
+		runErr = insertGEXP(db, members)
 	default:
 		log.Fatalf("unknown mode %q (want hourly or daily)", *mode)
 	}
 
+	db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "mode"}},
+		DoUpdates: clause.AssignmentColumns([]string{"ran_at", "success", "message"}),
+	}).Create(&store.FetcherRun{
+		Mode:    store.FetcherRunMode(*mode),
+		RanAt:   time.Now(),
+		Success: runErr == nil,
+		Message: fmt.Sprintf("%v", runErr),
+	})
 }
 
 func syncGuildMembers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) {
@@ -125,8 +135,7 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 			skipped, inserted, _ = insertDungeonStats(db, uuid, out.Profiles)
 			outSkipped += skipped
 			outInserted += inserted
-			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", uuid, outInserted, outSkipped)
-
+			log.Printf("Saved data for player %s: %d rows (%d already recorded)\n", player.Username, outInserted, outSkipped)
 		}
 	}
 }

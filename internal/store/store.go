@@ -14,6 +14,20 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type FetcherRunMode string
+
+const (
+	Hourly FetcherRunMode = "hourly"
+	Daily  FetcherRunMode = "daily"
+)
+
+type FetcherRun struct {
+	Mode    FetcherRunMode `gorm:"primaryKey"` // "hourly" | "daily"
+	RanAt   time.Time
+	Success bool
+	Message string // error text on failure, or a short summary on success
+}
+
 type StringSlice []string
 
 func (s StringSlice) Value() (driver.Value, error) {
@@ -128,7 +142,7 @@ func OpenDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}, &DungeonStats{}, &Gexp{}); err != nil {
+	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}, &DungeonStats{}, &Gexp{}, &FetcherRun{}); err != nil {
 		return nil, err
 	}
 
