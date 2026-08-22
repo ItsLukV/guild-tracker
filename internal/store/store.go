@@ -90,9 +90,9 @@ type DungeonStats struct {
 type DungeonChest struct {
 	gorm.Model
 	ProfileID     string `gorm:"index:idx_chest_owner,priority:1"`
-	PlayerUUID    string `gorm:"index:idx_chest_owner,priority:2"`
+	PlayerUUID    string `gorm:"index:idx_chest_owner,priority:2;uniqueIndex:idx_chest_player_chest,priority:1"`
 	RunID         string `gorm:"index"`
-	ChestID       string `gorm:"index"`
+	ChestID       string `gorm:"uniqueIndex:idx_chest_player_chest,priority:2"`
 	DungeonType   string
 	DungeonTier   int
 	TreasureType  string
