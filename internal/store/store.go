@@ -92,7 +92,7 @@ type DungeonChest struct {
 	ProfileID     string `gorm:"index:idx_chest_owner,priority:1"`
 	PlayerUUID    string `gorm:"index:idx_chest_owner,priority:2"`
 	RunID         string `gorm:"index"`
-	ChestID       string `gorm:"uniqueIndex"`
+	ChestID       string `gorm:"index"`
 	DungeonType   string
 	DungeonTier   int
 	TreasureType  string

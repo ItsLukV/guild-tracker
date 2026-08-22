@@ -50,7 +50,7 @@ func main() {
 	switch store.FetcherRunMode(*mode) {
 	case store.Hourly:
 		logger.Info("Started hourly fetching")
-		fetchHourly(ctx, db, client, uuids)
+		runErr = fetchHourly(ctx, db, client, uuids)
 	case store.Daily:
 		logger.Info("Started daily fetching")
 		runErr = insertGEXP(db, members)
@@ -119,7 +119,7 @@ func syncGuildMembers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) 
 	return players, err
 }
 
-func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store.Player) {
+func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store.Player) (err error) {
 	for _, player := range uuids {
 		uuid := player.MinecraftUUID
 
@@ -129,7 +129,8 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 			logger.Errorf("%v", err)
 		} else {
 			if err := checkForMissingProfiles(db, uuid, out.Profiles); err != nil {
-				logger.Errorf("Failed to check for missing profiles for %s: %v", uuid, err)
+				err = fmt.Errorf("failed to check for missing profiles for %s: %v", uuid, err)
+				logger.Errorf("%v", err)
 			}
 
 			var outSkipped, outInserted int
@@ -142,6 +143,7 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 			logger.Infof("Saved data for player %s: %d rows (%d already recorded)", player.Username, outInserted, outSkipped)
 		}
 	}
+	return err
 }
 
 func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile) error {
