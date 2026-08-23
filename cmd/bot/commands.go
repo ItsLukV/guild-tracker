@@ -98,6 +98,10 @@ func status(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Title:  "Fetcher Status",
 		Color:  0x3498db,
 		Fields: fields,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Requested by " + i.Member.User.Username,
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
 	}
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Embeds: &[]*discordgo.MessageEmbed{embed},

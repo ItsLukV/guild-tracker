@@ -120,7 +120,8 @@ func syncGuildMembers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) 
 }
 
 func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store.Player) (err error) {
-	for _, player := range uuids {
+	totalPlayers := len(uuids)
+	for i, player := range uuids {
 		uuid := player.MinecraftUUID
 
 		var out ProfilesResponse
@@ -140,17 +141,17 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 			skipped, inserted, _ = insertDungeonStats(db, uuid, out.Profiles)
 			outSkipped += skipped
 			outInserted += inserted
-			logger.Infof("Saved data for player %s: %d rows (%d already recorded)", player.Username, outInserted, outSkipped)
+			logger.Infof("[%v/%v] Saved data for player %s: %d rows (%d already recorded)", i, totalPlayers, player.Username, outInserted, outSkipped)
 		}
 	}
 	return err
 }
 
 func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile) error {
-	store_profiles := make([]store.Profile, 0)
+	storeProfiles := make([]store.Profile, 0)
 
 	for _, profile := range profiles {
-		store_profiles = append(store_profiles, store.Profile{
+		storeProfiles = append(storeProfiles, store.Profile{
 			PlayerUUID: playerUUID,
 			ProfileID:  profile.ProfileID,
 			Type:       profile.GameMode(),
@@ -158,7 +159,7 @@ func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile)
 		})
 	}
 	return db.Clauses(clause.OnConflict{DoNothing: true}).
-		CreateInBatches(&store_profiles, 1000).Error
+		CreateInBatches(&storeProfiles, 1000).Error
 }
 
 func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skipped, inserted int, err error) {
@@ -180,7 +181,13 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skippe
 			}
 		}
 		for _, chest := range treasures.Chests {
-			result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&store.DungeonChest{
+			result := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "player_uuid"}, {Name: "chest_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"paid", "rerolls", "rewards", "price"}),
+				Where: clause.Where{Exprs: []clause.Expression{clause.Expr{
+					SQL: "dungeon_chests.paid <> excluded.paid OR dungeon_chests.rerolls <> excluded.rerolls OR dungeon_chests.rewards <> excluded.rewards OR dungeon_chests.price <> excluded.price",
+				}}},
+			}).Create(&store.DungeonChest{
 				PlayerUUID:    playerUUID,
 				ProfileID:     profile.ProfileID,
 				RunID:         chest.RunId,
