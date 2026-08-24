@@ -537,7 +537,7 @@ func inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreat
 
 func sendFailedEmbed(msg string, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	embed := &discordgo.MessageEmbed{
-		Title:       "Leaderboard - Coins Spent",
+		Title:       "Error",
 		Color:       0xfc0000,
 		Description: msg,
 	}
