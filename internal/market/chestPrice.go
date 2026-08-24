@@ -1,18 +1,18 @@
-package main
+package market
 
 import "strconv"
 
 func ChestPrice(treasureType string, dungeonTier int, rewards []string) int {
-	price := base_chest_price[treasureType]
+	price := BaseChestPrice[treasureType]
 
-	rewardPrices := chest_price[treasureType][strconv.Itoa(dungeonTier)]
+	rewardPrices := ChestPriceItems[treasureType][strconv.Itoa(dungeonTier)]
 	for _, reward := range rewards {
 		price += rewardPrices[reward]
 	}
 	return price
 }
 
-var base_chest_price = map[string]int{
+var BaseChestPrice = map[string]int{
 	"bedrock":  2_000_000,
 	"obsidian": 1_000_000,
 	"emerald":  500_000,
@@ -20,7 +20,7 @@ var base_chest_price = map[string]int{
 	"gold":     100_000,
 }
 
-var chest_price = map[string]map[string]map[string]int{
+var ChestPriceItems = map[string]map[string]map[string]int{
 	"bedrock": {
 		"7": {
 			"necron_handle":        98_000_000,

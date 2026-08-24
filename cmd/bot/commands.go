@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -195,12 +196,15 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 			totals := make(map[string]*playerProfit)
 			for _, chest := range chests {
-				marketValue := 0.0
+				profit := 0
 				for _, reward := range chest.Rewards {
 					itemID, qty := market.ParseReward(reward)
-					if price, ok := marketCache.Price(itemID); ok {
-						marketValue += price * float64(qty)
+					price, ok := marketCache.Price(itemID)
+					if !ok {
+						continue
 					}
+					itemPrice := market.ChestPriceItems[chest.DungeonType][strconv.Itoa(chest.DungeonTier)][reward]
+					profit += (int(price) - itemPrice) * qty
 				}
 
 				p, ok := totals[chest.PlayerUUID]
@@ -212,7 +216,7 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 					p = &playerProfit{username: name}
 					totals[chest.PlayerUUID] = p
 				}
-				p.profit += int(marketValue) - chest.Price
+				p.profit += profit
 			}
 
 			results := make([]playerProfit, 0, len(totals))
@@ -386,7 +390,8 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if !ok {
 				continue
 			}
-			value := int(price) * qty
+			itemPrice := market.ChestPriceItems[chest.DungeonType][strconv.Itoa(chest.DungeonTier)][reward]
+			value := (int(price) - itemPrice) * qty
 
 			stat, ok := byItem[itemID]
 			if !ok {
@@ -435,7 +440,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Chest Items Report",
-		Description: fmt.Sprintf("Item value for %s: %s\nRuns: %v (avg. %v/run)\nWithout chest prices", displayName, utils.ShortNumber(totalValue), runs, utils.ShortNumber(totalValue/int(runs))),
+		Description: fmt.Sprintf("Item value for %s: %s\nRuns: %v (avg. %v/run)", displayName, utils.ShortNumber(totalValue), runs, utils.ShortNumber(totalValue/int(runs))),
 		Color:       0x1abc9c,
 		Fields:      out,
 		Thumbnail: &discordgo.MessageEmbedThumbnail{

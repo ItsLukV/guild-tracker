@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/ItsLukV/guild-tracker/internal/market"
 	"net/url"
 	"os"
 	"os/signal"
@@ -200,7 +201,7 @@ func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skippe
 				Paid:          chest.Paid,
 				Rerolls:       chest.Rerolls,
 				Rewards:       chest.Rewards.Rewards,
-				Price:         ChestPrice(chest.TreasureType, runTier[chest.RunId].runTier, chest.Rewards.Rewards),
+				Price:         market.ChestPrice(chest.TreasureType, runTier[chest.RunId].runTier, chest.Rewards.Rewards),
 			})
 			if result.Error != nil {
 				logger.Errorf("Failed to insert Chest data for %s: %v", playerUUID, result.Error)
