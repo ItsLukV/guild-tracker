@@ -420,7 +420,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var out []*discordgo.MessageEmbedField
 	for _, e := range entries {
 		out = append(out, &discordgo.MessageEmbedField{
-			Name:  e.item,
+			Name:  fmt.Sprintf("%s (%.2f%%)", e.item, float32(e.count)/float32(runs)),
 			Value: fmt.Sprintf("%s (x%d)", utils.ShortNumber(e.value), e.count),
 		})
 	}
