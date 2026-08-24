@@ -435,7 +435,7 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Chest Items Report",
-		Description: fmt.Sprintf("Item value for %s: %s\nRuns: %v\nWithout chest prices", displayName, utils.ShortNumber(totalValue), runs),
+		Description: fmt.Sprintf("Item value for %s: %s\nRuns: %v (avg. %v/run)\nWithout chest prices", displayName, utils.ShortNumber(totalValue), runs, utils.ShortNumber(totalValue/int(runs))),
 		Color:       0x1abc9c,
 		Fields:      out,
 		Thumbnail: &discordgo.MessageEmbedThumbnail{

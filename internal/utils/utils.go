@@ -122,7 +122,7 @@ func ShortNumber(n int) string {
 		return strconv.Itoa(n)
 	}
 
-	suffixes := []string{"K", "M", "B", "T", "Q"}
+	suffixes := []string{"k", "m", "b", "t", "q"}
 
 	// Determine which suffix bucket we fall into.
 	exp := int(math.Log10(float64(n)) / 3)
