@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"time"
+
 	"github.com/ItsLukV/guild-tracker/internal/market"
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
-	"sort"
-	"strconv"
-	"time"
 )
 
 var marketCache = market.NewCache()
@@ -178,8 +179,15 @@ func leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	case "Chest Profit":
 		{
-			var chests []store.DungeonChest
-			db.Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
+			var chests []struct {
+				store.DungeonChest
+				DungeonType string
+				DungeonTier int
+			}
+			db.Model(&store.DungeonChest{}).
+				Select("dungeon_chests.*, dungeon_runs.dungeon_type, dungeon_runs.dungeon_tier").
+				Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
+				Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 				Where("dungeon_chests.paid = ? AND players.in_guild = ?", true, true).
 				Find(&chests)
 
@@ -368,8 +376,18 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	uuid := mojang.ID
 
-	var chests []store.DungeonChest
-	db.Where("paid = ? AND player_uuid = ?", true, uuid).Find(&chests)
+	var chests []struct {
+		store.DungeonChest
+		DungeonType string
+		DungeonTier int
+	}
+
+	db.Model(&store.DungeonChest{}).
+		Select("dungeon_chests.*, dungeon_type, dungeon_tier").
+		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
+		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
+		Where("dungeon_chests.paid = ? AND players.player_uuid = ?", true, uuid).
+		Find(&chests)
 
 	var runs int64
 	db.Model(&store.DungeonChest{}).

@@ -93,8 +93,6 @@ type DungeonChest struct {
 	PlayerUUID    string `gorm:"index:idx_chest_owner,priority:2;uniqueIndex:idx_chest_player_chest,priority:1"`
 	RunID         string `gorm:"index"`
 	ChestID       string `gorm:"uniqueIndex:idx_chest_player_chest,priority:2"`
-	DungeonType   string
-	DungeonTier   int
 	TreasureType  string
 	Quality       int
 	ShinyEligible bool
@@ -102,6 +100,27 @@ type DungeonChest struct {
 	Rerolls       int
 	Rewards       StringSlice `gorm:"type:text"`
 	Price         int
+}
+
+type DungeonRun struct {
+	RunId     string `gorm:"primaryKey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+
+	CompletionTs time.Time
+	DungeonType  string
+	DungeonTier  int
+	Participants []Participant `gorm:"foreignKey:DungeonRunID;references:RunId"`
+}
+
+type Participant struct {
+	gorm.Model
+	DungeonRunID   string
+	PlayerUUID     string
+	ClassMilestone int
+	Class          string
+	Level          int
 }
 
 type Gexp struct {
@@ -142,7 +161,7 @@ func OpenDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}, &DungeonStats{}, &Gexp{}, &FetcherRun{}); err != nil {
+	if err := db.AutoMigrate(&Player{}, &Profile{}, &DungeonChest{}, &DungeonStats{}, &Gexp{}, &FetcherRun{}, &DungeonRun{}, &Participant{}); err != nil {
 		return nil, err
 	}
 

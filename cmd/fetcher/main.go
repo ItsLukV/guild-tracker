@@ -4,12 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/ItsLukV/guild-tracker/internal/market"
 	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/ItsLukV/guild-tracker/internal/market"
 
 	"github.com/ItsLukV/guild-tracker/internal/logging"
 	"github.com/ItsLukV/guild-tracker/internal/store"
@@ -136,13 +137,19 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 			}
 
 			var outSkipped, outInserted int
-			skipped, inserted, _ := insertChestData(db, uuid, out.Profiles)
-			outSkipped += skipped
-			outInserted += inserted
-			skipped, inserted, _ = insertDungeonStats(db, uuid, out.Profiles)
-			outSkipped += skipped
-			outInserted += inserted
-			logger.Infof("[%v/%v] Saved data for player %s: %d rows (%d already recorded)", i, totalPlayers, player.Username, outInserted, outSkipped)
+			for _, profile := range out.Profiles {
+				// TODO make this prettier
+				skipped, inserted, _ := profile.insertChestData(db, uuid)
+				outSkipped += skipped
+				outInserted += inserted
+				skipped, inserted, _ = profile.insertDungeonsRuns(db, uuid)
+				outSkipped += skipped
+				outInserted += inserted
+				skipped, inserted, _ = profile.insertDungeonStats(db, uuid)
+				outSkipped += skipped
+				outInserted += inserted
+				logger.Infof("[%v/%v] Saved data for player %s: %d rows (%d already recorded)", i, totalPlayers, player.Username, outInserted, outSkipped)
+			}
 		}
 	}
 	return err
@@ -163,79 +170,112 @@ func checkForMissingProfiles(db *gorm.DB, playerUUID string, profiles []Profile)
 		CreateInBatches(&storeProfiles, 1000).Error
 }
 
-func insertChestData(db *gorm.DB, playerUUID string, profiles []Profile) (skipped, inserted int, err error) {
-	for _, profile := range profiles {
-		if _, ok := profile.Members[playerUUID]; !ok {
-			logger.Errorf("Failed to get playerdata for %s in profile %s", playerUUID, profile.CuteName)
+func (p *Profile) insertChestData(db *gorm.DB, playerUUID string) (skipped, inserted int, err error) {
+	if _, ok := p.Members[playerUUID]; !ok {
+		logger.Errorf("Failed to get playerdata for %s in profile %s", playerUUID, p.CuteName)
+		return 0, 0, err
+	}
+
+	treasures := p.Members[playerUUID].Dungeons.Treasures
+	type runInfo struct {
+		runTier int
+		runType string
+	}
+
+	runTier := make(map[string]runInfo)
+	for _, run := range treasures.Runs {
+		runTier[run.RunId] = runInfo{
+			runTier: run.DungeonTier,
+			runType: run.DungeonType,
+		}
+	}
+	for _, chest := range treasures.Chests {
+		if chest.Type != "DUNGEON" {
+			continue
 		}
 
-		treasures := profile.Members[playerUUID].Dungeons.Treasures
-		type runInfo struct {
-			runTier int
-			runType string
+		result := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "player_uuid"}, {Name: "chest_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"paid", "rerolls", "rewards", "price"}),
+			Where: clause.Where{Exprs: []clause.Expression{clause.Expr{
+				SQL: "dungeon_chests.paid <> excluded.paid OR dungeon_chests.rerolls <> excluded.rerolls OR dungeon_chests.rewards <> excluded.rewards OR dungeon_chests.price <> excluded.price",
+			}}},
+		}).Create(&store.DungeonChest{
+			PlayerUUID:    playerUUID,
+			ProfileID:     p.ProfileID,
+			RunID:         chest.RunId,
+			ChestID:       chest.ChestId,
+			TreasureType:  chest.TreasureType,
+			Quality:       chest.Quality,
+			ShinyEligible: chest.ShinyEligible,
+			Paid:          chest.Paid,
+			Rerolls:       chest.Rerolls,
+			Rewards:       chest.Rewards.Rewards,
+			Price:         market.ChestPrice(chest.TreasureType, runTier[chest.RunId].runTier, chest.Rewards.Rewards),
+		})
+		if result.Error != nil {
+			logger.Errorf("Failed to insert Chest data for %s: %v", playerUUID, result.Error)
+			return skipped, inserted, result.Error
 		}
-		runTier := make(map[string]runInfo)
-		for _, run := range treasures.Runs {
-			runTier[run.RunId] = runInfo{
-				runTier: run.DungeonTier,
-				runType: run.DungeonType,
-			}
-		}
-		for _, chest := range treasures.Chests {
-			result := db.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "player_uuid"}, {Name: "chest_id"}},
-				DoUpdates: clause.AssignmentColumns([]string{"paid", "rerolls", "rewards", "price"}),
-				Where: clause.Where{Exprs: []clause.Expression{clause.Expr{
-					SQL: "dungeon_chests.paid <> excluded.paid OR dungeon_chests.rerolls <> excluded.rerolls OR dungeon_chests.rewards <> excluded.rewards OR dungeon_chests.price <> excluded.price",
-				}}},
-			}).Create(&store.DungeonChest{
-				PlayerUUID:    playerUUID,
-				ProfileID:     profile.ProfileID,
-				RunID:         chest.RunId,
-				ChestID:       chest.ChestId,
-				DungeonType:   runTier[chest.RunId].runType,
-				DungeonTier:   runTier[chest.RunId].runTier,
-				TreasureType:  chest.TreasureType,
-				Quality:       chest.Quality,
-				ShinyEligible: chest.ShinyEligible,
-				Paid:          chest.Paid,
-				Rerolls:       chest.Rerolls,
-				Rewards:       chest.Rewards.Rewards,
-				Price:         market.ChestPrice(chest.TreasureType, runTier[chest.RunId].runTier, chest.Rewards.Rewards),
-			})
-			if result.Error != nil {
-				logger.Errorf("Failed to insert Chest data for %s: %v", playerUUID, result.Error)
-				return skipped, inserted, result.Error
-			}
-			if result.RowsAffected == 0 {
-				skipped++
-			} else {
-				inserted++
-			}
+		if result.RowsAffected == 0 {
+			skipped++
+		} else {
+			inserted++
 		}
 	}
 
 	return skipped, inserted, err
 }
 
-func insertDungeonStats(db *gorm.DB, playerUUID string, profiles []Profile) (skipped, inserted int, err error) {
-	for _, profile := range profiles {
-		player := profile.Members[playerUUID]
+func (p *Profile) insertDungeonStats(db *gorm.DB, playerUUID string) (skipped, inserted int, err error) {
+	player := p.Members[playerUUID]
 
-		classExp := make(map[string]float32)
-		for k, e := range player.Dungeons.PlayerClasses {
-			classExp[k] = e.Experience
+	classExp := make(map[string]float32)
+	for k, e := range player.Dungeons.PlayerClasses {
+		classExp[k] = e.Experience
+	}
+
+	result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&store.DungeonStats{
+		ProfileID:                      p.ProfileID,
+		PlayerUUID:                     playerUUID,
+		CatacombsExperience:            player.Dungeons.DungeonTypes.Catacombs.Experience,
+		Secrets:                        player.Dungeons.Secrets,
+		CatacombsTierCompletions:       player.Dungeons.DungeonTypes.Catacombs.TierCompletions,
+		MasterCatacombsTierCompletions: player.Dungeons.DungeonTypes.MasterCatacombs.TierCompletions,
+		ClassExperience:                classExp,
+	})
+	if result.Error != nil {
+		logger.Errorf("Failed to insert dungeon stats for %s: %v", playerUUID, result.Error)
+		return skipped, inserted, result.Error
+	}
+	if result.RowsAffected == 0 {
+		skipped++
+	} else {
+		inserted++
+	}
+	return skipped, inserted, nil
+}
+
+func (p *Profile) insertDungeonsRuns(db *gorm.DB, playerUUID string) (skipped, inserted int, err error) {
+	for _, run := range p.Members[playerUUID].Dungeons.Treasures.Runs {
+		if run.Type != "DUNGEON" {
+			// logger.Warnf("Skipping non dungeon treasure run for player %s", playerUUID)
+			continue
 		}
 
-		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&store.DungeonStats{
-			ProfileID:                      profile.ProfileID,
-			PlayerUUID:                     playerUUID,
-			CatacombsExperience:            player.Dungeons.DungeonTypes.Catacombs.Experience,
-			Secrets:                        player.Dungeons.Secrets,
-			CatacombsTierCompletions:       player.Dungeons.DungeonTypes.Catacombs.TierCompletions,
-			MasterCatacombsTierCompletions: player.Dungeons.DungeonTypes.MasterCatacombs.TierCompletions,
-			ClassExperience:                classExp,
-		})
+		participants := make([]store.Participant, len(run.Participants))
+		for _, participant := range run.Participants {
+			participants = append(participants, participant.toStore(run.RunId))
+		}
+
+		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(
+			&store.DungeonRun{
+				RunId:        run.RunId,
+				CompletionTs: time.Unix(run.CompletionTs, 0),
+				DungeonType:  run.DungeonType,
+				DungeonTier:  run.DungeonTier,
+				Participants: participants,
+			})
 		if result.Error != nil {
 			logger.Errorf("Failed to insert dungeon stats for %s: %v", playerUUID, result.Error)
 			return skipped, inserted, result.Error

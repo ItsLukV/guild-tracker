@@ -132,47 +132,51 @@ type Profile struct {
 }
 
 type PlayerData struct {
-	Dungeons struct {
-		Treasures struct {
-			Chests []struct {
-				Type         string `json:"type"`
-				RunId        string `json:"run_id"`
-				ChestId      string `json:"Chest_id"`
-				TreasureType string `json:"treasure_type"`
-				Rewards      struct {
-					Rewards                []string `json:"rewards"`
-					RolledRngMeterRandomly bool     `json:"rolled_rng_meter_randomly"`
-				} `json:"rewards"`
-				Quality       int  `json:"quality"`
-				ShinyEligible bool `json:"shiny_eligible"`
-				Paid          bool `json:"paid"`
-				Rerolls       int  `json:"rerolls"`
-			} `json:"chests"`
-			Runs []struct {
-				Type         string `json:"type"`
-				RunId        string `json:"run_id"`
-				CompletionTs int    `json:"completion_ts"`
-				DungeonType  string `json:"dungeon_type"`
-				DungeonTier  int    `json:"dungeon_tier"`
-				Participants []struct {
-					PlayerUUID     string `json:"player_uuid"`
-					DisplayName    string `json:"display_name"`
-					ClassMilestone int    `json:"class_milestone"`
-				} `json:"participants"`
-			} `json:"runs"`
-		} `json:"treasures"`
-		DungeonTypes struct {
-			Catacombs struct {
-				TierCompletions map[string]float32 `json:"tier_completions"`
-				Experience      float32            `json:"experience"`
-			} `json:"catacombs"`
-			MasterCatacombs struct {
-				TierCompletions map[string]float32 `json:"tier_completions"`
-			} `json:"master_catacombs"`
-		} `json:"dungeon_types"`
-		PlayerClasses map[string]struct {
-			Experience float32 `json:"experience"`
-		} `json:"player_classes"`
-		Secrets int `json:"secrets"`
-	} `json:"dungeons"`
+	Dungeons Dungeons `json:"dungeons"`
+}
+
+type Dungeons struct {
+	Treasures struct {
+		Chests []struct {
+			Type         string `json:"type"`
+			RunId        string `json:"run_id"`
+			ChestId      string `json:"Chest_id"`
+			TreasureType string `json:"treasure_type"`
+			Rewards      struct {
+				Rewards                []string `json:"rewards"`
+				RolledRngMeterRandomly bool     `json:"rolled_rng_meter_randomly"`
+			} `json:"rewards"`
+			Quality       int  `json:"quality"`
+			ShinyEligible bool `json:"shiny_eligible"`
+			Paid          bool `json:"paid"`
+			Rerolls       int  `json:"rerolls"`
+		} `json:"chests"`
+		Runs []struct {
+			Type         string                 `json:"type"`
+			RunId        string                 `json:"run_id"`
+			CompletionTs int64                  `json:"completion_ts"`
+			DungeonType  string                 `json:"dungeon_type"`
+			DungeonTier  int                    `json:"dungeon_tier"`
+			Participants []TreasureParticipants `json:"participants"`
+		} `json:"runs"`
+	} `json:"treasures"`
+	DungeonTypes struct {
+		Catacombs struct {
+			TierCompletions map[string]float32 `json:"tier_completions"`
+			Experience      float32            `json:"experience"`
+		} `json:"catacombs"`
+		MasterCatacombs struct {
+			TierCompletions map[string]float32 `json:"tier_completions"`
+		} `json:"master_catacombs"`
+	} `json:"dungeon_types"`
+	PlayerClasses map[string]struct {
+		Experience float32 `json:"experience"`
+	} `json:"player_classes"`
+	Secrets int `json:"secrets"`
+}
+
+type TreasureParticipants struct {
+	PlayerUUID     string `json:"player_uuid"`
+	DisplayName    string `json:"display_name"`
+	ClassMilestone int    `json:"class_milestone"`
 }
