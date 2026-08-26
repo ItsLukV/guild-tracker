@@ -383,10 +383,9 @@ func items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	db.Model(&store.DungeonChest{}).
-		Select("dungeon_chests.*, dungeon_type, dungeon_tier").
-		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
+		Select("dungeon_chests.*, dungeon_runs.dungeon_type, dungeon_runs.dungeon_tier").
 		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
-		Where("dungeon_chests.paid = ? AND players.player_uuid = ?", true, uuid).
+		Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).
 		Find(&chests)
 
 	var runs int64
