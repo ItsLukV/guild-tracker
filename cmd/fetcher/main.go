@@ -148,8 +148,8 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 				skipped, inserted, _ = profile.insertDungeonStats(db, uuid)
 				outSkipped += skipped
 				outInserted += inserted
-				logger.Infof("[%v/%v] Saved data for player %s: %d rows (%d already recorded)", i, totalPlayers, player.Username, outInserted, outSkipped)
 			}
+			logger.Infof("[%v/%v] Saved data for player %s: %d rows (%d already recorded)", i, totalPlayers, player.Username, outInserted, outSkipped)
 		}
 	}
 	return err
@@ -263,7 +263,7 @@ func (p *Profile) insertDungeonsRuns(db *gorm.DB, playerUUID string) (skipped, i
 			continue
 		}
 
-		participants := make([]store.Participant, len(run.Participants))
+		participants := make([]store.Participant, 0, len(run.Participants))
 		for _, participant := range run.Participants {
 			participants = append(participants, participant.toStore(run.RunId))
 		}
