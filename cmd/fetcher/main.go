@@ -263,23 +263,32 @@ func (p *Profile) insertDungeonsRuns(db *gorm.DB, playerUUID string) (skipped, i
 			continue
 		}
 
-		participants := make([]store.Participant, 0, len(run.Participants))
-		for _, participant := range run.Participants {
-			participants = append(participants, participant.toStore(run.RunId))
-		}
-
 		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(
 			&store.DungeonRun{
 				RunId:        run.RunId,
 				CompletionTs: time.Unix(run.CompletionTs, 0),
 				DungeonType:  run.DungeonType,
 				DungeonTier:  run.DungeonTier,
-				Participants: participants,
 			})
 		if result.Error != nil {
 			logger.Errorf("Failed to insert dungeon stats for %s: %v", playerUUID, result.Error)
 			return skipped, inserted, result.Error
 		}
+
+		participants := make([]store.Participant, 0, len(run.Participants))
+		for _, participant := range run.Participants {
+			participants = append(participants, participant.toStore(run.RunId))
+		}
+		if len(participants) > 0 {
+			if err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "dungeon_run_id"}, {Name: "player_uuid"}},
+				DoNothing: true,
+			}).Create(&participants).Error; err != nil {
+				logger.Errorf("Failed to insert participants for run %s: %v", run.RunId, err)
+				return skipped, inserted, err
+			}
+		}
+
 		if result.RowsAffected == 0 {
 			skipped++
 		} else {

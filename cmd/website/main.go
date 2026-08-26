@@ -8,16 +8,16 @@ import (
 	. "maragu.dev/gomponents/html"
 )
 
+func NavbarLink(href, name, currentPath string) Node {
+	return A(Href(href), Classes{"is-active": currentPath == href}, Text(name))
+}
+
 func Navbar(authenticated bool, currentPath string) Node {
 	return Nav(
 		NavbarLink("/", "Home", currentPath),
 		NavbarLink("/about", "About", currentPath),
 		If(authenticated, NavbarLink("/profile", "Profile", currentPath)),
 	)
-}
-
-func NavbarLink(href, name, currentPath string) Node {
-	return A(Href(href), Classes{"is-active": currentPath == href}, Text(name))
 }
 
 func Page(currentPath string) Node {

@@ -116,8 +116,8 @@ type DungeonRun struct {
 
 type Participant struct {
 	gorm.Model
-	DungeonRunID   string
-	PlayerUUID     string
+	DungeonRunID   string `gorm:"uniqueIndex:idx_participant_run_player,priority:1"`
+	PlayerUUID     string `gorm:"uniqueIndex:idx_participant_run_player,priority:2"`
 	ClassMilestone int
 	Class          string
 	Level          int
