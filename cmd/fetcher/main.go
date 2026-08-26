@@ -149,7 +149,7 @@ func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store
 				outSkipped += skipped
 				outInserted += inserted
 			}
-			logger.Infof("[%v/%v] Saved data for player %s: %d rows (%d already recorded)", i, totalPlayers, player.Username, outInserted, outSkipped)
+			logger.Infof("[%v/%v] Saved data for player %s: %d rows (%d already recorded)", i, totalPlayers-1, player.Username, outInserted, outSkipped)
 		}
 	}
 	return err
