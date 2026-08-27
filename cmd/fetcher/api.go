@@ -132,7 +132,18 @@ type Profile struct {
 }
 
 type PlayerData struct {
-	Dungeons Dungeons `json:"dungeons"`
+	Dungeons    Dungeons    `json:"dungeons"`
+	PlayerStats PlayerStats `json:"player_stats"`
+}
+
+type PlayerStats struct {
+	Mythos struct {
+		Kills                 float64            `json:"kills"`
+		BurrowsChainsComplete map[string]float64 `json:"burrows_chains_complete"`
+		BurrowsDugCombat      map[string]float64 `json:"burrows_dug_combat"`
+		BurrowsDugNext        map[string]float64 `json:"burrows_dug_next"`
+		BurrowsDugTreasure    map[string]float64 `json:"burrows_dug_treasure"`
+	} `json:"mythos"`
 }
 
 type Dungeons struct {
