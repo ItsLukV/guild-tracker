@@ -1,52 +1,47 @@
 package main
 
 import (
-	"net/http"
-
-	. "maragu.dev/gomponents"
-	. "maragu.dev/gomponents/components"
+	"github.com/gin-gonic/gin"
+	g "maragu.dev/gomponents"
+	hx "maragu.dev/gomponents-htmx"
 	. "maragu.dev/gomponents/html"
 )
 
-func NavbarLink(href, name, currentPath string) Node {
-	return A(Href(href), Classes{"is-active": currentPath == href}, Text(name))
-}
+var likes = 0
 
-func Navbar(authenticated bool, currentPath string) Node {
-	return Nav(
-		NavbarLink("/", "Home", currentPath),
-		NavbarLink("/about", "About", currentPath),
-		If(authenticated, NavbarLink("/profile", "Profile", currentPath)),
+func LikeButton(count int) g.Node {
+	return Button(
+		ID("like-btn"),
+		hx.Post("/like"),     // click sends POST /like
+		hx.Swap("outerHTML"), // replace this button with the response
+		g.Textf("👍 %d", count),
 	)
 }
 
-func Page(currentPath string) Node {
-	switch currentPath {
-	case "/":
-		return HTML(
-			Head(TitleEl(Text("Guild-Tracker"))),
-			Body(
-				Navbar(false, currentPath),
-				H1(Text("Hello!")),
-			),
-		)
-	case "/about":
-		return HTML(
-			Head(TitleEl(Text("My Site"))),
-			Body(
-				Navbar(false, currentPath),
-				H1(Text("Hello!")),
-			),
-		)
-	}
-	return nil
+func Page() g.Node {
+	return HTML(
+		Head(
+			// load htmx
+			Script(Src("https://unpkg.com/htmx.org@2")),
+		),
+		Body(
+			H1(g.Text("My Blog")),
+			LikeButton(likes),
+		),
+	)
 }
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		_ = Page(r.URL.Path).Render(w)
+	r := gin.Default()
+
+	r.GET("/", func(c *gin.Context) {
+		Page().Render(c.Writer)
 	})
 
-	http.ListenAndServe(":8080", nil)
+	r.POST("/like", func(c *gin.Context) {
+		likes++
+		LikeButton(likes).Render(c.Writer)
+	})
+
+	r.Run(":8080")
 }
