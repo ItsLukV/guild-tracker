@@ -74,6 +74,7 @@ type Profile struct {
 	DeletedAt  gorm.DeletedAt `gorm:"index"`
 	Chests     []DungeonChest `gorm:"foreignKey:ProfileID;references:ProfileID"`
 	Dungeons   []DungeonStats `gorm:"foreignKey:ProfileID;references:ProfileID"`
+	DungeonRun []DungeonRun   `gorm:"foreignKey:ProfileID;references:ProfileID"`
 }
 
 type DungeonStats struct {
@@ -108,6 +109,7 @@ type DungeonRun struct {
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
+	ProfileID    string `gorm:"index"`
 	CompletionTs time.Time
 	DungeonType  string
 	DungeonTier  int
@@ -117,7 +119,7 @@ type DungeonRun struct {
 type Participant struct {
 	gorm.Model
 	DungeonRunID   string `gorm:"uniqueIndex:idx_participant_run_player,priority:1"`
-	PlayerUUID     string `gorm:"uniqueIndex:idx_participant_run_player,priority:2"`
+	PlayerUUID     string `gorm:"uniqueIndex:idx_participant_run_player,priority:2,foreignKey:PlayerUUID;references:MinecraftUUID"`
 	ClassMilestone int
 	Class          string
 	Level          int

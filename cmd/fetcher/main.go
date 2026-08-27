@@ -269,6 +269,7 @@ func (p *Profile) insertDungeonsRuns(db *gorm.DB, playerUUID string) (skipped, i
 				CompletionTs: time.Unix(run.CompletionTs, 0),
 				DungeonType:  run.DungeonType,
 				DungeonTier:  run.DungeonTier,
+				ProfileID:    p.ProfileID,
 			})
 		if result.Error != nil {
 			logger.Errorf("Failed to insert dungeon stats for %s: %v", playerUUID, result.Error)

@@ -15,7 +15,7 @@
       </ENTRIES>
     </EXTENSION>
     <kind value="PACKAGE" />
-    <package value="github.com/ItsLukV/guild-tracker" />
+    <package value="github.com/ItsLukV/guild-tracker/cmd/fetcher" />
     <directory value="$PROJECT_DIR$" />
     <auto_managed_config_id value="$PROJECT_DIR$" />
     <method v="2" />
