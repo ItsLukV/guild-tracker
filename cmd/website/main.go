@@ -21,13 +21,25 @@ func Navbar(authenticated bool, currentPath string) Node {
 }
 
 func Page(currentPath string) Node {
-	return HTML(
-		Head(TitleEl(Text("My Site"))),
-		Body(
-			Navbar(false, currentPath),
-			H1(Text("Hello!")),
-		),
-	)
+	switch currentPath {
+	case "/":
+		return HTML(
+			Head(TitleEl(Text("Guild-Tracker"))),
+			Body(
+				Navbar(false, currentPath),
+				H1(Text("Hello!")),
+			),
+		)
+	case "/about":
+		return HTML(
+			Head(TitleEl(Text("My Site"))),
+			Body(
+				Navbar(false, currentPath),
+				H1(Text("Hello!")),
+			),
+		)
+	}
+	return nil
 }
 
 func main() {

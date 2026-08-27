@@ -1,17 +1,17 @@
-package main
+package paginator
 
 import (
 	"fmt"
-	"github.com/bwmarrin/discordgo"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
+	"go.uber.org/zap"
 )
 
 const pagePrefix = "page_"
 const pageTTL = 15 * time.Minute
-
-var pg = &paginator{state: map[string]*pageState{}}
 
 type pageState struct {
 	pages     []*discordgo.MessageEmbed
@@ -20,20 +20,22 @@ type pageState struct {
 	lastUsed  time.Time
 }
 
-type paginator struct {
-	mu    sync.Mutex
-	state map[string]*pageState
-	ttl   time.Duration
+type Paginator struct {
+	mu     sync.Mutex
+	state  map[string]*pageState
+	ttl    time.Duration
+	logger *zap.SugaredLogger
 }
 
-func newPaginator() *paginator {
-	return &paginator{
-		state: map[string]*pageState{},
-		ttl:   pageTTL,
+func NewPaginator(logger *zap.SugaredLogger) *Paginator {
+	return &Paginator{
+		state:  map[string]*pageState{},
+		ttl:    pageTTL,
+		logger: logger,
 	}
 }
 
-func (p *paginator) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (p *Paginator) HandleButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type != discordgo.InteractionMessageComponent {
 		return
 	}
@@ -77,11 +79,11 @@ func (p *paginator) handleButton(s *discordgo.Session, i *discordgo.InteractionC
 		},
 	})
 	if err != nil {
-		logger.Errorf("paginator: update error: %v", err)
+		p.logger.Errorf("paginator: update error: %v", err)
 	}
 }
 
-func (p *paginator) EditWithPages(s *discordgo.Session, i *discordgo.InteractionCreate, pages []*discordgo.MessageEmbed) error {
+func (p *Paginator) EditWithPages(s *discordgo.Session, i *discordgo.InteractionCreate, pages []*discordgo.MessageEmbed) error {
 	if len(pages) == 0 {
 		return fmt.Errorf("paginator: need at least one page")
 	}
@@ -139,17 +141,17 @@ func buildComponents(page, total int) []discordgo.MessageComponent {
 	}
 }
 
-func (p *paginator) StartJanitor(s *discordgo.Session) {
+func (p *Paginator) StartJanitor(s *discordgo.Session) {
 	go func() {
 		ticker := time.NewTicker(time.Minute * 60)
 		defer ticker.Stop()
 		for range ticker.C {
-			p.sweep(s)
+			p.Sweep(s)
 		}
 	}()
 }
 
-func (p *paginator) sweep(s *discordgo.Session) {
+func (p *Paginator) Sweep(s *discordgo.Session) {
 	now := time.Now()
 
 	type dead struct{ msgID, channelID string }
@@ -171,7 +173,14 @@ func (p *paginator) sweep(s *discordgo.Session) {
 			Components: &empty,
 		})
 		if err != nil {
-			logger.Errorf("paginator: strip buttons on %s: %v", d.msgID, err)
+			p.logger.Errorf("paginator: strip buttons on %s: %v", d.msgID, err)
 		}
 	}
+}
+
+func (p *Paginator) FullSweep(s *discordgo.Session) {
+	p.mu.Lock()
+	p.ttl = 0
+	p.mu.Unlock()
+	p.Sweep(s)
 }
