@@ -72,8 +72,8 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 			if !ok {
 				continue
 			}
-			itemPrice := market.ChestPriceItems[chest.DungeonType][strconv.Itoa(chest.DungeonTier)][reward]
-			value := (int(price) - itemPrice) * qty
+			itemChestPrice := market.ChestPriceItems[chest.TreasureType][strconv.Itoa(chest.DungeonTier)][reward]
+			value := (int(price) - itemChestPrice) * qty
 
 			stat, ok := byItem[itemID]
 			if !ok {

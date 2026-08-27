@@ -4,6 +4,7 @@
 - [x] Store Dungeons Chests
 - [x] Store Dungeons Stats
 - [x] Store Guild Exp
+- [ ] Store diana data
 
 ## Discord Bot
 - [x] Leaderboard coins spent
@@ -15,3 +16,4 @@
 - [x] Inactivity report (guild exp per month)
 - [ ] Stats/secrets command (DungeonStats: catacombs exp, secrets, tier completions, class exp)
 - [ ] Profile selector for /loss and /items
+- [ ] Floor selector for /leaderboard

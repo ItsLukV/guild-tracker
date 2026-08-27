@@ -115,7 +115,7 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 					if !ok {
 						continue
 					}
-					itemPrice := market.ChestPriceItems[chest.DungeonType][strconv.Itoa(chest.DungeonTier)][reward]
+					itemPrice := market.ChestPriceItems[chest.TreasureType][strconv.Itoa(chest.DungeonTier)][reward]
 					profit += (int(price) - itemPrice) * qty
 				}
 
@@ -156,7 +156,7 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 						Where("player_uuid = ?", r.uuid).
 						Distinct("run_id").
 						Count(&runs)
-					
+
 					fields = append(fields, &discordgo.MessageEmbedField{
 						Name:  fmt.Sprintf("#%d - %s (avg. %v/run)", idx+1, r.username, utils.ShortNumber(r.profit/int(runs))),
 						Value: utils.ShortNumber(r.profit),

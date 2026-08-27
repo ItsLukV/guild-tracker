@@ -25,7 +25,7 @@ type FetcherRun struct {
 	Mode    FetcherRunMode `gorm:"primaryKey"` // "hourly" | "daily"
 	RanAt   time.Time
 	Success bool
-	Message string // error text on failure, or a short summary on success
+	Message string
 }
 
 type StringSlice []string
