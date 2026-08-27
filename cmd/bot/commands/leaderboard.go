@@ -103,6 +103,7 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 
 			type playerProfit struct {
 				username string
+				uuid     string
 				profit   int
 			}
 			totals := make(map[string]*playerProfit)
@@ -124,7 +125,7 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 					if name == "" {
 						name = chest.PlayerUUID
 					}
-					p = &playerProfit{username: name}
+					p = &playerProfit{username: name, uuid: chest.PlayerUUID}
 					totals[chest.PlayerUUID] = p
 				}
 				p.profit += profit
@@ -148,9 +149,16 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 
 				var fields []*discordgo.MessageEmbedField
 				for idx := start; idx < end; idx++ {
+					var runs int64
 					r := results[idx]
+
+					db.Model(&store.DungeonChest{}).
+						Where("player_uuid = ?", r.uuid).
+						Distinct("run_id").
+						Count(&runs)
+					
 					fields = append(fields, &discordgo.MessageEmbedField{
-						Name:  fmt.Sprintf("#%d - %s", idx+1, r.username),
+						Name:  fmt.Sprintf("#%d - %s (avg. %v/run)", idx+1, r.username, utils.ShortNumber(r.profit/int(runs))),
 						Value: utils.ShortNumber(r.profit),
 					})
 				}
