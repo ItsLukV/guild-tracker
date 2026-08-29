@@ -52,6 +52,10 @@ func main() {
 	switch store.FetcherRunMode(*mode) {
 	case store.Hourly:
 		logger.Info("Started hourly fetching")
+		uuids, err = addTrackedPlayers(db, uuids)
+		if err != nil {
+			logger.Errorf("Failed to load tracked players: %v", err)
+		}
 		runErr = fetchHourly(ctx, db, client, uuids)
 	case store.Daily:
 		logger.Info("Started daily fetching")
@@ -119,6 +123,27 @@ func syncGuildMembers(db *gorm.DB, guildInfo guildInfo) ([]store.Player, error) 
 		DoUpdates: clause.AssignmentColumns([]string{"username", "in_guild"}),
 	}).CreateInBatches(&players, 1000).Error
 	return players, err
+}
+
+func addTrackedPlayers(db *gorm.DB, players []store.Player) ([]store.Player, error) {
+	var tracked []store.Player
+	if err := db.Where("tracked = ?", true).Find(&tracked).Error; err != nil {
+		return players, fmt.Errorf("load tracked players: %w", err)
+	}
+
+	seen := make(map[string]struct{}, len(players))
+	for _, p := range players {
+		seen[p.MinecraftUUID] = struct{}{}
+	}
+
+	for _, p := range tracked {
+		if _, ok := seen[p.MinecraftUUID]; ok {
+			continue
+		}
+		players = append(players, p)
+		seen[p.MinecraftUUID] = struct{}{}
+	}
+	return players, nil
 }
 
 func fetchHourly(ctx context.Context, db *gorm.DB, client *Client, uuids []store.Player) (err error) {
@@ -266,7 +291,7 @@ func (p *Profile) insertDungeonsRuns(db *gorm.DB, playerUUID string) (skipped, i
 		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(
 			&store.DungeonRun{
 				RunId:        run.RunId,
-				CompletionTs: time.Unix(run.CompletionTs, 0),
+				CompletionTs: time.UnixMilli(run.CompletionTs),
 				DungeonType:  run.DungeonType,
 				DungeonTier:  run.DungeonTier,
 				ProfileID:    p.ProfileID,

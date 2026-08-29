@@ -56,6 +56,7 @@ type Player struct {
 	MinecraftUUID    string `gorm:"primaryKey"`
 	Username         string
 	InGuild          bool `gorm:"default:true"`
+	Tracked          bool `gorm:"default:false"`
 	DiscordSnowflake string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
