@@ -106,8 +106,9 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 
 	var out []*discordgo.MessageEmbedField
 	for _, e := range entries {
+		dropRate := float32(e.count) / float32(runs) * 100
 		out = append(out, &discordgo.MessageEmbedField{
-			Name:  fmt.Sprintf("%s (%.2f%%)", e.item, float32(e.count)/float32(runs)),
+			Name:  fmt.Sprintf("%s (%.2f%%)", e.item, dropRate),
 			Value: fmt.Sprintf("%s (x%d)", utils.ShortNumber(e.value), e.count),
 		})
 	}

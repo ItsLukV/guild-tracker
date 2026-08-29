@@ -157,8 +157,9 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 						Distinct("run_id").
 						Count(&runs)
 
+					profitRate := utils.ShortNumber(r.profit / int(runs))
 					fields = append(fields, &discordgo.MessageEmbedField{
-						Name:  fmt.Sprintf("#%d - %s (avg. %v/run)", idx+1, r.username, utils.ShortNumber(r.profit/int(runs))),
+						Name:  fmt.Sprintf("#%d - %s (avg. %v/run)", idx+1, r.username, profitRate),
 						Value: utils.ShortNumber(r.profit),
 					})
 				}
