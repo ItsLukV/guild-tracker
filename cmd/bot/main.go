@@ -30,7 +30,7 @@ func main() {
 	pg = paginator.NewPaginator(logger)
 
 	commands = com.NewCommands(logger, pg, db)
-	commands.StartMarketCacheRefresh(24*time.Hour, logger.Errorf)
+	commands.StartMarketCacheRefresh(time.Hour, logger.Errorf)
 
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
