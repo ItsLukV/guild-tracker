@@ -14,11 +14,11 @@ func (c *Commands) status(db *gorm.DB, s *discordgo.Session, i *discordgo.Intera
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 
-	var runs []store.FetcherRun
-	db.Find(&runs)
+	var status []store.FetcherRun
+	db.Find(&status)
 
 	var fields []*discordgo.MessageEmbedField
-	for _, r := range runs {
+	for _, r := range status {
 		status := "✅ success"
 		if !r.Success {
 			status = "❌ failed"
@@ -28,6 +28,11 @@ func (c *Commands) status(db *gorm.DB, s *discordgo.Session, i *discordgo.Intera
 			Value: fmt.Sprintf("<t:%d:R> — %s", r.RanAt.Unix(), status),
 		})
 	}
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:  "Market Price",
+		Value: fmt.Sprintf("<t:%d:R>", c.MarketCache.LastFetch().Unix()),
+	})
 
 	embed := &discordgo.MessageEmbed{
 		Title:  "Fetcher Status",
