@@ -47,7 +47,7 @@ func NewCache() *Cache {
 func (c *Cache) LastFetch() time.Time {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return time.Now()
+	return c.lastFetch
 }
 
 func (c *Cache) Price(itemID string) (float64, bool) {
