@@ -17,7 +17,8 @@ const (
 
 type bazaarResponse struct {
 	Products map[string]struct {
-		Sell float64 `json:"sell"`
+		// Sell      float64 `json:"sell"`
+		SellOrder float64 `json:"sellOrder"`
 	} `json:"products"`
 }
 
@@ -30,9 +31,10 @@ type auctionsResponse struct {
 }
 
 type Cache struct {
-	client *http.Client
-	mu     sync.RWMutex
-	prices map[string]float64
+	client    *http.Client
+	mu        sync.RWMutex
+	lastFetch time.Time
+	prices    map[string]float64
 }
 
 func NewCache() *Cache {
@@ -40,6 +42,12 @@ func NewCache() *Cache {
 		client: &http.Client{Timeout: 30 * time.Second},
 		prices: map[string]float64{},
 	}
+}
+
+func (c *Cache) LastFetch() time.Time {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Now()
 }
 
 func (c *Cache) Price(itemID string) (float64, bool) {
@@ -82,6 +90,7 @@ func (c *Cache) Refresh() error {
 
 	c.mu.Lock()
 	c.prices = prices
+	c.lastFetch = time.Now()
 	c.mu.Unlock()
 
 	return nil
@@ -95,8 +104,8 @@ func (c *Cache) fetchBazaar() (map[string]float64, error) {
 
 	prices := make(map[string]float64, len(out.Products))
 	for id, product := range out.Products {
-		if product.Sell > 0 {
-			prices[strings.ToUpper(id)] = product.Sell
+		if product.SellOrder > 0 {
+			prices[strings.ToUpper(id)] = product.SellOrder
 		}
 	}
 	return prices, nil
