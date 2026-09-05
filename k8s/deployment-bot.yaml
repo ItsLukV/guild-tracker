@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guild-tracker-bot
+  namespace: guild-tracker
+  labels:
+    app: guild-tracker-bot
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: guild-tracker-bot
+  template:
+    metadata:
+      labels:
+        app: guild-tracker-bot
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull # drop this if you make the ghcr.io package public
+      containers:
+        - name: bot
+          image: ghcr.io/itslukv/guild-tracker:latest
+          command: ["/app/bot"]
+          envFrom:
+            - secretRef:
+                name: guild-tracker-env
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
