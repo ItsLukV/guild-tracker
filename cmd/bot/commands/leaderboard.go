@@ -50,13 +50,12 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 func (c *Commands) totalRunsLeaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var runs []struct {
 		Username string
-		Uuid     string
 		Count    int
 	}
-	db.Model(&store.DungeonRun{}).Select("players.username, players.minecraft_uuid as uuid, COUNT(DISTINCT dungeon_runs.run_id) as count").
+	db.Model(&store.DungeonRun{}).Select("players.username, COUNT(DISTINCT dungeon_runs.run_id) as count").
 		Joins("JOIN profiles ON dungeon_runs.profile_id = profiles.profile_id").
 		Joins("JOIN players ON players.minecraft_uuid = profiles.player_uuid").
-		Group("profiles.player_uuid").
+		Group("players.username").
 		Where("players.in_guild = ?", true).
 		Order("count DESC").
 		Find(&runs)
