@@ -53,7 +53,7 @@ jobs:
 
       - name: Restart the bot on pi5
         run: |
-          ssh -o "StrictHostKeyChecking=accept-new" ${{ secrets.VPS_HOST }}'
+          ssh -o "StrictHostKeyChecking=accept-new" ${{ secrets.VPS_HOST }} '
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             kubectl rollout restart deployment/guild-tracker-bot -n guild-tracker
             kubectl rollout status deployment/guild-tracker-bot -n guild-tracker --timeout=120s
