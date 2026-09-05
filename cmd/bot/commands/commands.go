@@ -71,13 +71,14 @@ var List = []*discordgo.ApplicationCommand{
 		Description: "Check the leaderboard loss",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
+				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "leaderboard",
 				Description: "The leaderboard to view",
 				Required:    true,
 				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{Name: "Coins Spent", Value: "Coins Spent"},
-					{Name: "Chest Profit", Value: "Chest Profit"},
+					{Name: "Chest Profit", Value: int(ChestProfit)},
+					{Name: "Total Runs", Value: int(TotalRuns)},
+					{Name: "Coins Spent", Value: int(CoinsSpent)},
 				},
 			},
 		},
