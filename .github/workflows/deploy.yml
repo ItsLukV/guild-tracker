@@ -26,11 +26,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # CGO_ENABLED=1 in the Dockerfile rules out plain `GOARCH=arm64 go
-      # build` cross-compilation (no arm64 C toolchain on this runner), so
-      # this emulates the target arch via qemu instead - slower, but no
-      # Dockerfile changes needed.
-
       - uses: docker/setup-buildx-action@v3
 
       - name: Build and push
@@ -45,3 +40,21 @@ jobs:
             ghcr.io/${{ steps.image.outputs.name }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Restart the bot on pi5
+        run: |
+          ssh -o "StrictHostKeyChecking=accept-new" ${{ secrets.VPS_HOST }}'
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            kubectl rollout restart deployment/guild-tracker-bot -n guild-tracker
+            kubectl rollout status deployment/guild-tracker-bot -n guild-tracker --timeout=120s
+          '
