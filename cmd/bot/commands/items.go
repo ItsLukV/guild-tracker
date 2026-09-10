@@ -53,6 +53,15 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 		Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).
 		Find(&chests)
 
+	var rerolls struct {
+		Rerolls int
+	}
+
+	db.Model(&store.DungeonChest{}).
+		Select("SUM(dungeon_chests.Rerolls) as rerolls").
+		Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).
+		First(&rerolls)
+
 	var runs int64
 	db.Model(&store.DungeonChest{}).
 		Where("player_uuid = ?", uuid).
@@ -121,9 +130,27 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 		return
 	}
 
+	kismetPrice, exist := c.MarketCache.Price("KISMET_FEATHER")
+	if !exist {
+		c.logger.Errorf("failed to fetch kismet feather price: %v", err)
+		msg := fmt.Sprintf("Failed to fetch kismet feather price: %s", uuid)
+		c.sendFailedEmbed(msg, s, i)
+		return
+	}
+	totalValue -= int(kismetPrice) * rerolls.Rerolls
+
+	description := fmt.Sprintf("Item value for %s: %s\nRuns: %v (avg. %v/run)\nKismit Cost: %v (%vx)",
+		displayName,
+		utils.ShortNumber(totalValue),
+		runs,
+		utils.ShortNumber(totalValue/int(runs)),
+		utils.ShortNumber(rerolls.Rerolls*int(kismetPrice)),
+		rerolls.Rerolls,
+	)
+
 	embed := &discordgo.MessageEmbed{
 		Title:       "Chest Items Report",
-		Description: fmt.Sprintf("Item value for %s: %s\nRuns: %v (avg. %v/run)", displayName, utils.ShortNumber(totalValue), runs, utils.ShortNumber(totalValue/int(runs))),
+		Description: description,
 		Color:       0x1abc9c,
 		Fields:      out,
 		Thumbnail: &discordgo.MessageEmbedThumbnail{
