@@ -147,6 +147,27 @@ func (c *Commands) chestProfitLeaderboard(db *gorm.DB, s *discordgo.Session, i *
 		p.profit += profit
 	}
 
+	kismetPrice, exist := c.MarketCache.Price("KISMET_FEATHER")
+	if !exist {
+		c.logger.Errorf("failed to fetch kismet feather price")
+		msg := fmt.Sprintf("Failed to fetch kismet feather price")
+		c.sendFailedEmbed(msg, s, i)
+		return
+	}
+
+	for uuid, playerinfo := range totals {
+		var rerolls struct {
+			Rerolls int
+		}
+
+		db.Model(&store.DungeonChest{}).
+			Select("SUM(dungeon_chests.Rerolls) as rerolls").
+			Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).
+			First(&rerolls)
+
+		playerinfo.profit -= int(kismetPrice) * rerolls.Rerolls
+	}
+
 	results := make([]playerProfit, 0, len(totals))
 	for _, p := range totals {
 		results = append(results, *p)
