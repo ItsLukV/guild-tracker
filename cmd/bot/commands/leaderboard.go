@@ -163,7 +163,7 @@ func (c *Commands) chestProfitLeaderboard(db *gorm.DB, s *discordgo.Session, i *
 		db.Model(&store.DungeonChest{}).
 			Select("SUM(dungeon_chests.Rerolls) as rerolls").
 			Where("dungeon_chests.player_uuid = ?", uuid).
-			First(&rerolls)
+			Find(&rerolls)
 
 		playerinfo.profit -= int(kismetPrice) * rerolls.Rerolls
 	}
