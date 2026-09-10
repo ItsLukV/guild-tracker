@@ -82,8 +82,8 @@ func (c *Commands) totalRunsLeaderboard(db *gorm.DB, s *discordgo.Session, i *di
 			})
 		}
 		pages = append(pages, &discordgo.MessageEmbed{
-			Title:  "Leaderboard - Coins Spent",
-			Color:  0xf1c40f,
+			Title:  "Leaderboard - Total Runs",
+			Color:  0x4287f5,
 			Fields: fields,
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: "Requested by " + i.Member.User.Username,
