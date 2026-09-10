@@ -59,7 +59,7 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 
 	db.Model(&store.DungeonChest{}).
 		Select("SUM(dungeon_chests.Rerolls) as rerolls").
-		Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).
+		Where("dungeon_chests.player_uuid = ?", uuid).
 		First(&rerolls)
 
 	var runs int64
