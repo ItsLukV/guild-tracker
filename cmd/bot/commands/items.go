@@ -124,7 +124,7 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 
 	displayName, err := utils.UUIDToName(uuid)
 	if err != nil {
-		c.logger.Errorf("failed to resolve uuid to username: %v", err)
+		c.logger.Errorf("failed to resolve uuid to username")
 		msg := fmt.Sprintf("Found no minecraft account with the uuid: %s", uuid)
 		c.sendFailedEmbed(msg, s, i)
 		return
