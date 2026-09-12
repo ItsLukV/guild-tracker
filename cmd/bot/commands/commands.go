@@ -15,7 +15,7 @@ type Commands struct {
 	logger      *zap.SugaredLogger
 	pg          *paginator.Paginator
 	db          *gorm.DB
-	handlers    map[string]func(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate)
+	handlers    map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 func NewCommands(logger *zap.SugaredLogger, paginator *paginator.Paginator, db *gorm.DB) *Commands {
@@ -27,7 +27,7 @@ func NewCommands(logger *zap.SugaredLogger, paginator *paginator.Paginator, db *
 		db:          db,
 	}
 
-	c.handlers = map[string]func(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate){
+	c.handlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"loss":        c.loss,
 		"items":       c.items,
 		"leaderboard": c.leaderboard,
@@ -95,7 +95,7 @@ func (c *Commands) HandleCommands(s *discordgo.Session, i *discordgo.Interaction
 		return
 	}
 	if h, ok := c.handlers[i.ApplicationCommandData().Name]; ok {
-		h(c.db, s, i)
+		h(s, i)
 	}
 }
 

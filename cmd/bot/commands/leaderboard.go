@@ -10,7 +10,6 @@ import (
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 )
 
 type LeaderboardType int64
@@ -21,7 +20,7 @@ const (
 	CoinsSpent
 )
 
-func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) leaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -37,28 +36,34 @@ func (c *Commands) leaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.I
 	}
 	switch LeaderboardType(m["leaderboard"].IntValue()) {
 	case CoinsSpent:
-		c.coinSpentLeaderboard(db, s, i)
+		c.coinSpentLeaderboard(s, i)
 	case ChestProfit:
-		c.chestProfitLeaderboard(db, s, i)
+		c.chestProfitLeaderboard(s, i)
 	case TotalRuns:
-		c.totalRunsLeaderboard(db, s, i)
+		c.totalRunsLeaderboard(s, i)
 	default:
 		c.sendFailedEmbed("unknown leaderboard type", s, i)
 	}
 }
 
-func (c *Commands) totalRunsLeaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var runs []struct {
 		Username string
 		Count    int
 	}
-	db.Model(&store.DungeonRun{}).Select("players.username, COUNT(DISTINCT dungeon_runs.run_id) as count").
-		Joins("JOIN profiles ON dungeon_runs.profile_id = profiles.profile_id").
-		Joins("JOIN players ON players.minecraft_uuid = profiles.player_uuid").
-		Group("players.username").
+	err := c.db.Model(&store.DungeonChest{}).
+		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
 		Where("players.in_guild = ?", true).
+		Select("COUNT(DISTINCT dungeon_chests.run_id) as count, players.username as username").
+		Group("players.username").
 		Order("count DESC").
-		Find(&runs)
+		Find(&runs).Error
+
+	if err != nil {
+		c.logger.Errorf("error fetching dungeon runs: %v", err)
+		c.sendFailedEmbed("error fetching dungeon runs", s, i)
+		return
+	}
 
 	const perPage = 10
 	var pages []*discordgo.MessageEmbed
@@ -97,13 +102,13 @@ func (c *Commands) totalRunsLeaderboard(db *gorm.DB, s *discordgo.Session, i *di
 	}
 }
 
-func (c *Commands) chestProfitLeaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var chests []struct {
 		store.DungeonChest
 		DungeonType string
 		DungeonTier int
 	}
-	db.Model(&store.DungeonChest{}).
+	c.db.Model(&store.DungeonChest{}).
 		Select("dungeon_chests.*, dungeon_runs.dungeon_type, dungeon_runs.dungeon_tier").
 		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
 		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
@@ -111,7 +116,7 @@ func (c *Commands) chestProfitLeaderboard(db *gorm.DB, s *discordgo.Session, i *
 		Find(&chests)
 
 	var guildPlayers []store.Player
-	db.Where("in_guild = ?", true).Find(&guildPlayers)
+	c.db.Where("in_guild = ?", true).Find(&guildPlayers)
 	usernames := make(map[string]string, len(guildPlayers))
 	for _, p := range guildPlayers {
 		usernames[p.MinecraftUUID] = p.Username
@@ -160,7 +165,7 @@ func (c *Commands) chestProfitLeaderboard(db *gorm.DB, s *discordgo.Session, i *
 			Rerolls int
 		}
 
-		db.Model(&store.DungeonChest{}).
+		c.db.Model(&store.DungeonChest{}).
 			Select("SUM(dungeon_chests.Rerolls) as rerolls").
 			Where("dungeon_chests.player_uuid = ?", uuid).
 			Find(&rerolls)
@@ -189,7 +194,7 @@ func (c *Commands) chestProfitLeaderboard(db *gorm.DB, s *discordgo.Session, i *
 			var runs int64
 			r := results[idx]
 
-			db.Model(&store.DungeonChest{}).
+			c.db.Model(&store.DungeonChest{}).
 				Where("player_uuid = ?", r.uuid).
 				Distinct("run_id").
 				Count(&runs)
@@ -216,14 +221,14 @@ func (c *Commands) chestProfitLeaderboard(db *gorm.DB, s *discordgo.Session, i *
 	}
 }
 
-func (c *Commands) coinSpentLeaderboard(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) coinSpentLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	type Result struct {
 		PlayerUUID string
 		Username   string
 		Total      int
 	}
 	var results []Result
-	db.Model(&store.DungeonChest{}).
+	c.db.Model(&store.DungeonChest{}).
 		Select("dungeon_chests.player_uuid, players.username, SUM(dungeon_chests.price) as total").
 		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
 		Where("dungeon_chests.paid = ? AND players.in_guild = ?", true, true).

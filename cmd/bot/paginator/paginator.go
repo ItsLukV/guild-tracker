@@ -11,7 +11,7 @@ import (
 )
 
 const pagePrefix = "page_"
-const pageTTL = 15 * time.Minute
+const pageTTL = 5 * time.Minute
 
 type pageState struct {
 	pages     []*discordgo.MessageEmbed

@@ -7,10 +7,9 @@ import (
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 )
 
-func (c *Commands) inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) inactivity(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -25,7 +24,7 @@ func (c *Commands) inactivity(db *gorm.DB, s *discordgo.Session, i *discordgo.In
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	startOfNextMonth := startOfMonth.AddDate(0, 1, 0)
 
-	err := db.Model(&store.Gexp{}).
+	err := c.db.Model(&store.Gexp{}).
 		Select("gexps.player_uuid, players.username, SUM(gexps.gexp) AS total").
 		Joins("JOIN players ON players.minecraft_uuid = gexps.player_uuid").
 		Where("gexps.ts >= ? AND gexps.ts < ? AND players.in_guild = ?", startOfMonth, startOfNextMonth, true).

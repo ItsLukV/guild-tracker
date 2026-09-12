@@ -8,10 +8,9 @@ import (
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 )
 
-func (c *Commands) loss(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) loss(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -44,7 +43,7 @@ func (c *Commands) loss(db *gorm.DB, s *discordgo.Session, i *discordgo.Interact
 		Total       int
 	}
 
-	db.Model(&store.DungeonChest{}).
+	c.db.Model(&store.DungeonChest{}).
 		Select("SUM(dungeon_chests.price) as total, dungeon_runs.dungeon_type, dungeon_runs.dungeon_tier").
 		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 		Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).

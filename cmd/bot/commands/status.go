@@ -6,16 +6,15 @@ import (
 
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 )
 
-func (c *Commands) status(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) status(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 
 	var status []store.FetcherRun
-	db.Find(&status)
+	c.db.Find(&status)
 
 	var fields []*discordgo.MessageEmbedField
 	for _, r := range status {

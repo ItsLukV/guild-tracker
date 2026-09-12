@@ -11,10 +11,9 @@ import (
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 )
 
-func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *Commands) items(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -47,7 +46,7 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 		DungeonTier int
 	}
 
-	db.Model(&store.DungeonChest{}).
+	c.db.Model(&store.DungeonChest{}).
 		Select("dungeon_chests.*, dungeon_runs.dungeon_type, dungeon_runs.dungeon_tier").
 		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 		Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).
@@ -57,13 +56,13 @@ func (c *Commands) items(db *gorm.DB, s *discordgo.Session, i *discordgo.Interac
 		Rerolls int
 	}
 
-	db.Model(&store.DungeonChest{}).
+	c.db.Model(&store.DungeonChest{}).
 		Select("SUM(dungeon_chests.Rerolls) as rerolls").
 		Where("dungeon_chests.player_uuid = ?", uuid).
 		Find(&rerolls)
 
 	var runs int64
-	db.Model(&store.DungeonChest{}).
+	c.db.Model(&store.DungeonChest{}).
 		Where("player_uuid = ?", uuid).
 		Distinct("run_id").
 		Count(&runs)
