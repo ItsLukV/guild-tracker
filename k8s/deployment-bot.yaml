@@ -26,6 +26,16 @@ spec:
           envFrom:
             - secretRef:
                 name: guild-tracker-env
+          ports:
+            - containerPort: 8081
+              name: health
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
           resources:
             requests:
               cpu: 50m

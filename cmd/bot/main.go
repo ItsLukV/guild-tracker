@@ -1,8 +1,10 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -14,14 +16,45 @@ import (
 	"go.uber.org/zap"
 )
 
+// gatewayHealthyWindow is how long the bot can go without a Ready/Resumed
+// event before /healthz reports unhealthy. discordgo retries the gateway
+// connection forever with backoff (capped at 10 minutes), so this gives it
+// a couple of retry cycles before k8s restarts the pod.
+const gatewayHealthyWindow = 15 * time.Minute
+
 var logger *zap.SugaredLogger
 
 var commands *com.Commands
 var pg *paginator.Paginator
 
+var lastGatewayConnectUnixNano atomic.Int64
+
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	last := time.Unix(0, lastGatewayConnectUnixNano.Load())
+	if time.Since(last) > gatewayHealthyWindow {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func startHealthServer(addr string) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", healthzHandler)
+
+	go func() {
+		if err := http.ListenAndServe(addr, mux); err != nil {
+			logger.Errorf("health server stopped: %v", err)
+		}
+	}()
+}
+
 func main() {
 	logger = logging.New()
 	defer logger.Sync()
+
+	lastGatewayConnectUnixNano.Store(time.Now().UnixNano())
+	startHealthServer(":8081")
 
 	db, err := store.OpenDB()
 	if err != nil {
@@ -49,6 +82,10 @@ func main() {
 
 	session.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		logger.Infof("Logged in as %s#%s", r.User.Username, r.User.Discriminator)
+		lastGatewayConnectUnixNano.Store(time.Now().UnixNano())
+	})
+	session.AddHandler(func(s *discordgo.Session, r *discordgo.Resumed) {
+		lastGatewayConnectUnixNano.Store(time.Now().UnixNano())
 	})
 
 	if err := session.Open(); err != nil {
