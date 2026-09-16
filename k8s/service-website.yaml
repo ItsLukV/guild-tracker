@@ -1,19 +1,16 @@
-# Requires the Tailscale Kubernetes operator to be installed on the cluster:
-# https://tailscale.com/kb/1236/kubernetes-operator
-# Once running, this shows up on your tailnet as "guild-tracker-website".
+# Reachable at http://<pi5-tailscale-ip>:30880 from any device on your tailnet
+# (no extra cluster components needed).
 apiVersion: v1
 kind: Service
 metadata:
   name: guild-tracker-website
   namespace: guild-tracker
-  annotations:
-    tailscale.com/hostname: guild-tracker-website
 spec:
-  type: LoadBalancer
-  loadBalancerClass: tailscale
+  type: NodePort
   selector:
     app: guild-tracker-website
   ports:
     - port: 80
       targetPort: http
+      nodePort: 30880
       name: http
