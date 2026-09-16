@@ -145,6 +145,7 @@ func TotalProfitByPlayer(db *gorm.DB, cache *market.Cache, duration Duration) ([
 		db.Model(&DungeonChest{}).
 			Select("SUM(dungeon_chests.Rerolls) as rerolls").
 			Where("dungeon_chests.player_uuid = ?", uuid).
+			Scopes(ApplyDuration(duration, "dungeon_chests.created_at")).
 			Find(&rerolls)
 
 		playerInfo.Profit -= int(kismetPrice) * rerolls.Rerolls
