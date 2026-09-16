@@ -13,6 +13,7 @@ COPY internal ./internal
 ENV CGO_ENABLED=1
 RUN go build -o /out/bot ./cmd/bot
 RUN go build -o /out/fetcher ./cmd/fetcher
+RUN go build -o /out/website ./cmd/website
 
 FROM debian:bookworm-slim
 WORKDIR /app
@@ -22,5 +23,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
 COPY --from=build /out/bot /app/bot
 COPY --from=build /out/fetcher /app/fetcher
+COPY --from=build /out/website /app/website
 
 VOLUME ["/app/data"]

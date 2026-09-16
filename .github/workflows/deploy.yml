@@ -51,10 +51,11 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: Restart the bot on pi5
+      - name: Restart the bot and website on pi5
         run: |
           ssh -o "StrictHostKeyChecking=accept-new" ${{ secrets.VPS_HOST }} '
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-            kubectl rollout restart deployment/guild-tracker-bot -n guild-tracker
+            kubectl rollout restart deployment/guild-tracker-bot deployment/guild-tracker-website -n guild-tracker
             kubectl rollout status deployment/guild-tracker-bot -n guild-tracker --timeout=120s
+            kubectl rollout status deployment/guild-tracker-website -n guild-tracker --timeout=120s
           '

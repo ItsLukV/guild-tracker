@@ -13,7 +13,6 @@ import (
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	. "maragu.dev/gomponents"
 	. "maragu.dev/gomponents/components"
@@ -31,7 +30,7 @@ func start() error {
 	logger := logging.New()
 	m := market.NewCache()
 	m.StartAutoRefresh(time.Minute*60, logger.Errorf)
-	db, err := gorm.Open(sqlite.Open("chest_tracker.db"), &gorm.Config{})
+	db, err := store.OpenDB()
 	if err != nil {
 		return err
 	}
@@ -45,9 +44,13 @@ func start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", Adapt(app.handleLeaderboard))
 	mux.HandleFunc("/leaderboard", Adapt(app.handleLeaderboardFragment))
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
-	logger.Info("Starting on http://localhost:8080")
-	if err := http.ListenAndServe("localhost:8080", mux); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	addr := ":8080"
+	logger.Infof("Starting on http://0.0.0.0%s", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil

@@ -44,7 +44,7 @@ func (c *Commands) leaderboard(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	runs, err := store.TotalRunsByPlayer(c.db)
+	runs, err := store.TotalRunsByPlayer(c.db, store.Total)
 
 	if err != nil {
 		c.logger.Errorf("error fetching dungeon runs: %v", err)
