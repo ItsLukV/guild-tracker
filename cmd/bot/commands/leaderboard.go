@@ -2,11 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
 	"time"
 
-	"github.com/ItsLukV/guild-tracker/internal/market"
 	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/ItsLukV/guild-tracker/internal/utils"
 	"github.com/bwmarrin/discordgo"
@@ -47,17 +44,7 @@ func (c *Commands) leaderboard(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var runs []struct {
-		Username string
-		Count    int
-	}
-	err := c.db.Model(&store.DungeonChest{}).
-		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
-		Where("players.in_guild = ?", true).
-		Select("COUNT(DISTINCT dungeon_chests.run_id) as count, players.username as username").
-		Group("players.username").
-		Order("count DESC").
-		Find(&runs).Error
+	runs, err := store.TotalRunsByPlayer(c.db)
 
 	if err != nil {
 		c.logger.Errorf("error fetching dungeon runs: %v", err)
@@ -83,7 +70,7 @@ func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.Inter
 			}
 			fields = append(fields, &discordgo.MessageEmbedField{
 				Name:  fmt.Sprintf("#%d - %s", idx+1, name),
-				Value: utils.ShortNumber(r.Count),
+				Value: utils.ShortNumber(int(r.Count)),
 			})
 		}
 		pages = append(pages, &discordgo.MessageEmbed{
@@ -103,83 +90,12 @@ func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.Inter
 }
 
 func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var chests []struct {
-		store.DungeonChest
-		DungeonType string
-		DungeonTier int
-	}
-	c.db.Model(&store.DungeonChest{}).
-		Select("dungeon_chests.*, dungeon_runs.dungeon_type, dungeon_runs.dungeon_tier").
-		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
-		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
-		Where("dungeon_chests.paid = ? AND players.in_guild = ?", true, true).
-		Find(&chests)
-
-	var guildPlayers []store.Player
-	c.db.Where("in_guild = ?", true).Find(&guildPlayers)
-	usernames := make(map[string]string, len(guildPlayers))
-	for _, p := range guildPlayers {
-		usernames[p.MinecraftUUID] = p.Username
-	}
-
-	type playerProfit struct {
-		username string
-		uuid     string
-		profit   int
-	}
-	totals := make(map[string]*playerProfit)
-	for _, chest := range chests {
-		profit := 0
-		for _, reward := range chest.Rewards {
-			itemID, qty := market.ParseReward(reward)
-			price, ok := c.MarketCache.Price(itemID)
-			if !ok {
-				continue
-			}
-			itemPrice := market.ChestPriceItems[chest.TreasureType][strconv.Itoa(chest.DungeonTier)][reward]
-			profit += (int(price) - itemPrice) * qty
-		}
-
-		p, ok := totals[chest.PlayerUUID]
-		if !ok {
-			name := usernames[chest.PlayerUUID]
-			if name == "" {
-				name = chest.PlayerUUID
-			}
-			p = &playerProfit{username: name, uuid: chest.PlayerUUID}
-			totals[chest.PlayerUUID] = p
-		}
-		p.profit += profit
-	}
-
-	kismetPrice, exist := c.MarketCache.Price("KISMET_FEATHER")
-	if !exist {
-		c.logger.Errorf("failed to fetch kismet feather price")
-		msg := fmt.Sprintf("Failed to fetch kismet feather price")
-		c.sendFailedEmbed(msg, s, i)
+	results, err := store.TotalProfitByPlayer(c.db, c.MarketCache)
+	if err != nil {
+		c.logger.Errorf("error fetching dungeon profits: %v", err)
+		c.sendFailedEmbed("error fetching dungeon profits", s, i)
 		return
 	}
-
-	for uuid, playerinfo := range totals {
-		var rerolls struct {
-			Rerolls int
-		}
-
-		c.db.Model(&store.DungeonChest{}).
-			Select("SUM(dungeon_chests.Rerolls) as rerolls").
-			Where("dungeon_chests.player_uuid = ?", uuid).
-			Find(&rerolls)
-
-		playerinfo.profit -= int(kismetPrice) * rerolls.Rerolls
-	}
-
-	results := make([]playerProfit, 0, len(totals))
-	for _, p := range totals {
-		results = append(results, *p)
-	}
-	sort.Slice(results, func(a, b int) bool {
-		return results[a].profit > results[b].profit
-	})
 
 	const perPage = 10
 	var pages []*discordgo.MessageEmbed
@@ -195,14 +111,15 @@ func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.Int
 			r := results[idx]
 
 			c.db.Model(&store.DungeonChest{}).
-				Where("player_uuid = ?", r.uuid).
+				Joins("JOIN players on players.minecraft_uuid = dungeon_chests.player_uuid").
+				Where("players.username = ?", r.Username).
 				Distinct("run_id").
 				Count(&runs)
 
-			profitRate := utils.ShortNumber(r.profit / int(runs))
+			profitRate := utils.ShortNumber(r.Profit / int(runs))
 			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:  fmt.Sprintf("#%d - %s (avg. %v/run)", idx+1, r.username, profitRate),
-				Value: utils.ShortNumber(r.profit),
+				Name:  fmt.Sprintf("#%d - %s (avg. %v/run)", idx+1, r.Username, profitRate),
+				Value: utils.ShortNumber(r.Profit),
 			})
 		}
 		pages = append(pages, &discordgo.MessageEmbed{

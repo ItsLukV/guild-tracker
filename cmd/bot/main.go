@@ -16,10 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// gatewayHealthyWindow is how long the bot can go without a Ready/Resumed
-// event before /healthz reports unhealthy. discordgo retries the gateway
-// connection forever with backoff (capped at 10 minutes), so this gives it
-// a couple of retry cycles before k8s restarts the pod.
 const gatewayHealthyWindow = 15 * time.Minute
 
 var logger *zap.SugaredLogger
