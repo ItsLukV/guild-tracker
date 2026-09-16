@@ -90,7 +90,7 @@ func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.Inter
 }
 
 func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	results, err := store.TotalProfitByPlayer(c.db, c.MarketCache)
+	results, err := store.TotalProfitByPlayer(c.db, c.MarketCache, store.Total)
 	if err != nil {
 		c.logger.Errorf("error fetching dungeon profits: %v", err)
 		c.sendFailedEmbed("error fetching dungeon profits", s, i)

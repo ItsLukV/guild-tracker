@@ -75,13 +75,38 @@ var boards = map[string]board{
 	},
 }
 
+type timeOption struct {
+	label string
+	mode  store.Duration
+}
+
+var timeOptions = map[string]timeOption{
+	"total":   {"All Time", store.Total},
+	"daily":   {"Daily", store.Day},
+	"weekly":  {"Weekly", store.Week},
+	"monthly": {"Monthly", store.Month},
+	"yearly":  {"Yearly", store.Year},
+}
+
+func resolveTime(r *http.Request) (string, timeOption) {
+	key := r.URL.Query().Get("time")
+	t, ok := timeOptions[key]
+	if !ok {
+		key = "total"
+		t = timeOptions["total"]
+	}
+	return key, t
+}
+
 type LeaderboardRow struct {
 	Name  string
 	Value string
 }
 
 func (a *App) chestProfit(r *http.Request) ([]LeaderboardRow, error) {
-	profit, err := store.TotalProfitByPlayer(a.db, a.market)
+	_, t := resolveTime(r)
+
+	profit, err := store.TotalProfitByPlayer(a.db, a.market, t.mode)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +122,9 @@ func (a *App) chestProfit(r *http.Request) ([]LeaderboardRow, error) {
 }
 
 func (a *App) runsBoard(r *http.Request) ([]LeaderboardRow, error) {
-	runs, err := store.TotalRunsByPlayer(a.db)
+	_, t := resolveTime(r)
+
+	runs, err := store.TotalRunsByPlayer(a.db, t.mode)
 	if err != nil {
 		return nil, err
 	}
@@ -124,11 +151,14 @@ func page(leaderboardNode Node) Node {
 	})
 }
 
-func leaderboardTable(rows []LeaderboardRow, title, current string) Node {
+func leaderboardTable(rows []LeaderboardRow, title, current, currentTime string) Node {
 	return Div(
 		ID("leaderboard"),
 		H1(Text(title)),
-		boardSelect(current),
+		Div(Class("not-prose flex gap-4"), // put the two selects side by side
+			boardSelect(current),
+			timeSelect(currentTime),
+		),
 		Table(
 			THead(
 				Tr(
@@ -168,15 +198,42 @@ func boardSelect(current string) Node {
 		Attr("hx-get", "/leaderboard"),
 		Attr("hx-target", "#leaderboard"),
 		Attr("hx-swap", "outerHTML"),
+		Attr("hx-include", "[name='time']"),
 		Name("board"),
 		Group(opts),
 	)
 }
 
-func leaderboardElement(rows []LeaderboardRow, title, current string) Node {
+func timeSelect(current string) Node {
+	keys := make([]string, 0, len(timeOptions))
+	for key := range timeOptions {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	var opts []Node
+	for _, key := range keys {
+		opts = append(opts, Option(
+			Value(key),
+			Text(timeOptions[key].label),
+			If(key == current, Selected()),
+		))
+	}
+	return Select(
+		Class("not-prose border rounded p-2 mb-4 w-64"),
+		Attr("hx-get", "/leaderboard"),
+		Attr("hx-target", "#leaderboard"),
+		Attr("hx-swap", "outerHTML"),
+		Attr("hx-include", "[name='board']"),
+		Name("time"),
+		Group(opts),
+	)
+}
+
+func leaderboardElement(rows []LeaderboardRow, title, current, currentTime string) Node {
 	return Div(
 		Class("max-w-7xl mx-auto p-4 prose lg:prose-lg xl:prose-xl"),
-		leaderboardTable(rows, title, current),
+		leaderboardTable(rows, title, current, currentTime),
 	)
 }
 
@@ -191,13 +248,15 @@ func (a *App) handleLeaderboard(w http.ResponseWriter, r *http.Request) (Node, e
 		return nil, fmt.Errorf("could not find %s query param", r.URL.Query().Get("board"))
 	}
 
+	timeKey, _ := resolveTime(r)
+
 	rows, err := b.query(a, r)
 	if err != nil {
 		a.logger.Errorw("leaderboard failed", "board", b.label, "err", err)
 		return nil, err
 	}
 
-	return page(leaderboardElement(rows, b.label, key)), nil
+	return page(leaderboardElement(rows, b.label, key, timeKey)), nil
 }
 
 func (a *App) handleLeaderboardFragment(w http.ResponseWriter, r *http.Request) (Node, error) {
@@ -212,11 +271,13 @@ func (a *App) handleLeaderboardFragment(w http.ResponseWriter, r *http.Request) 
 		return nil, fmt.Errorf("could not find %s query param", r.URL.Query().Get("board"))
 	}
 
+	timeKey, _ := resolveTime(r)
+
 	rows, err := b.query(a, r)
 	if err != nil {
 		a.logger.Errorw("leaderboard fragment failed", "board", b.label, "err", err)
 		return nil, err
 	}
 
-	return leaderboardTable(rows, b.label, key), nil
+	return leaderboardTable(rows, b.label, key, timeKey), nil
 }

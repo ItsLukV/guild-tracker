@@ -50,14 +50,14 @@ func main() {
 
 	var runErr error
 	switch store.FetcherRunMode(*mode) {
-	case store.Hourly:
+	case store.HourlyMode:
 		logger.Info("Started hourly fetching")
 		uuids, err = addTrackedPlayers(db, uuids)
 		if err != nil {
 			logger.Errorf("Failed to load tracked players: %v", err)
 		}
 		runErr = fetchHourly(ctx, db, client, uuids)
-	case store.Daily:
+	case store.DailyMode:
 		logger.Info("Started daily fetching")
 		runErr = insertGEXP(db, members)
 	default:

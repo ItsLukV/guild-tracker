@@ -17,8 +17,8 @@ import (
 type FetcherRunMode string
 
 const (
-	Hourly FetcherRunMode = "hourly"
-	Daily  FetcherRunMode = "daily"
+	HourlyMode FetcherRunMode = "hourly"
+	DailyMode  FetcherRunMode = "daily"
 )
 
 type FetcherRun struct {

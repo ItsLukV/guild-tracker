@@ -4,25 +4,69 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/ItsLukV/guild-tracker/internal/market"
 	"gorm.io/gorm"
 )
+
+type Duration int
+
+const (
+	Day Duration = iota
+	Week
+	Month
+	Year
+	Total
+)
+
+func ApplyDuration(duration Duration, tsColumn string) func(*gorm.DB) *gorm.DB {
+	return func(query *gorm.DB) *gorm.DB {
+		now := time.Now()
+		var startDate, endDate time.Time
+
+		switch duration {
+		case Day:
+			startDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			endDate = startDate.AddDate(0, 0, 1)
+		case Week:
+			weekday := int(now.Weekday())
+			if weekday == 0 {
+				weekday = 7
+			}
+			startDate = time.Date(now.Year(), now.Month(), now.Day()-(weekday-1), 0, 0, 0, 0, now.Location())
+			endDate = startDate.AddDate(0, 0, 7)
+		case Month:
+			startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+			endDate = startDate.AddDate(0, 1, 0)
+		case Year:
+			startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+			endDate = startDate.AddDate(1, 0, 0)
+		case Total:
+			return query
+		}
+
+		clause := fmt.Sprintf("%s >= ? AND %s < ?", tsColumn, tsColumn)
+		return query.Where(clause, startDate, endDate)
+	}
+}
 
 type PlayerRunCount struct {
 	Username string
 	Count    int64
 }
 
-func TotalRunsByPlayer(db *gorm.DB) ([]PlayerRunCount, error) {
+func TotalRunsByPlayer(db *gorm.DB, duration Duration) ([]PlayerRunCount, error) {
 	var runs []PlayerRunCount
 	err := db.Model(&DungeonChest{}).
 		Select("COUNT(DISTINCT dungeon_chests.run_id) as count, players.username as Username").
 		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
 		Where("players.in_guild = ?", true).
 		Group("players.username").
+		Scopes(ApplyDuration(duration, "dungeon_chests.created_at")).
 		Order("count DESC").
 		Find(&runs).Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +78,7 @@ type PlayerProfit struct {
 	Profit   int
 }
 
-func TotalProfitByPlayer(db *gorm.DB, cache *market.Cache) ([]PlayerProfit, error) {
+func TotalProfitByPlayer(db *gorm.DB, cache *market.Cache, duration Duration) ([]PlayerProfit, error) {
 	var chests []struct {
 		DungeonChest
 		DungeonType string
@@ -45,7 +89,9 @@ func TotalProfitByPlayer(db *gorm.DB, cache *market.Cache) ([]PlayerProfit, erro
 		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
 		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 		Where("dungeon_chests.paid = ? AND players.in_guild = ?", true, true).
+		Scopes(ApplyDuration(duration, "dungeon_chests.created_at")).
 		Find(&chests).Error
+
 	if err != nil {
 		return nil, err
 	}
