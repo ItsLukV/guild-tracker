@@ -79,7 +79,7 @@ func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.Inter
 		pages = append(pages, &discordgo.MessageEmbed{
 			Title:       "Leaderboard - Total Runs",
 			Color:       0x4287f5,
-			Description: fmt.Sprintf("Duration: %s", duration),
+			Description: fmt.Sprintf("Duration: `%s`", duration),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: "Requested by " + i.Member.User.Username,
@@ -130,7 +130,7 @@ func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.Int
 		pages = append(pages, &discordgo.MessageEmbed{
 			Title:       "Leaderboard - Chest Profit",
 			Color:       0x1abc9c,
-			Description: fmt.Sprintf("Duration: %s", duration),
+			Description: fmt.Sprintf("Duration: `%s`", duration),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: "Item prices from: https://eliteskyblock.com/",
