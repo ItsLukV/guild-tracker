@@ -124,7 +124,7 @@ func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.Int
 			profitRate := utils.ShortNumber(r.Profit / int(runs))
 			fields = append(fields, &discordgo.MessageEmbedField{
 				Name:  fmt.Sprintf("#%d - %s (avg. %v/run)", idx+1, r.Username, profitRate),
-				Value: utils.ShortNumber(r.Profit),
+				Value: fmt.Sprintf("Total: %v\nTotal runs: %v", utils.ShortNumber(r.Profit), runs),
 			})
 		}
 		pages = append(pages, &discordgo.MessageEmbed{
