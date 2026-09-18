@@ -5,6 +5,7 @@ import (
 
 	"github.com/ItsLukV/guild-tracker/cmd/bot/paginator"
 	"github.com/ItsLukV/guild-tracker/internal/market"
+	"github.com/ItsLukV/guild-tracker/internal/store"
 	"github.com/bwmarrin/discordgo"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -78,7 +79,20 @@ var List = []*discordgo.ApplicationCommand{
 				Choices: []*discordgo.ApplicationCommandOptionChoice{
 					{Name: "Chest Profit", Value: int(ChestProfit)},
 					{Name: "Total Runs", Value: int(TotalRuns)},
-					{Name: "Coins Spent", Value: int(CoinsSpent)},
+					// {Name: "Coins Spent", Value: int(CoinsSpent)}, Deprecated
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "duration",
+				Description: "time period",
+				Required:    false,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{Name: "Day", Value: int(store.Day)},
+					{Name: "Week", Value: int(store.Week)},
+					{Name: "Month", Value: int(store.Month)},
+					{Name: "Year", Value: int(store.Year)},
+					{Name: "Total", Value: int(store.Total)},
 				},
 			},
 		},

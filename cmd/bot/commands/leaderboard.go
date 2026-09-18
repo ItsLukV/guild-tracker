@@ -14,7 +14,7 @@ type LeaderboardType int64
 const (
 	TotalRuns LeaderboardType = iota
 	ChestProfit
-	CoinsSpent
+	// CoinsSpent Deprecated
 )
 
 func (c *Commands) leaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -28,23 +28,26 @@ func (c *Commands) leaderboard(s *discordgo.Session, i *discordgo.InteractionCre
 		m[opt.Name] = opt
 	}
 
+	timePeriod := store.Total
 	if _, ok := m["leaderboard"]; !ok {
 		return
 	}
+	if _, ok := m["duration"]; ok {
+		timePeriod = store.Duration(m["leaderboard"].IntValue())
+	}
 	switch LeaderboardType(m["leaderboard"].IntValue()) {
-	case CoinsSpent:
-		c.coinSpentLeaderboard(s, i)
+	// case CoinsSpent: c.coinSpentLeaderboard(s, i) Deprecated
 	case ChestProfit:
-		c.chestProfitLeaderboard(s, i)
+		c.chestProfitLeaderboard(s, i, timePeriod)
 	case TotalRuns:
-		c.totalRunsLeaderboard(s, i)
+		c.totalRunsLeaderboard(s, i, timePeriod)
 	default:
 		c.sendFailedEmbed("unknown leaderboard type", s, i)
 	}
 }
 
-func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	runs, err := store.TotalRunsByPlayer(c.db, store.Total)
+func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate, duration store.Duration) {
+	runs, err := store.TotalRunsByPlayer(c.db, duration)
 
 	if err != nil {
 		c.logger.Errorf("error fetching dungeon runs: %v", err)
@@ -89,8 +92,8 @@ func (c *Commands) totalRunsLeaderboard(s *discordgo.Session, i *discordgo.Inter
 	}
 }
 
-func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	results, err := store.TotalProfitByPlayer(c.db, c.MarketCache, store.Total)
+func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate, duration store.Duration) {
+	results, err := store.TotalProfitByPlayer(c.db, c.MarketCache, duration)
 	if err != nil {
 		c.logger.Errorf("error fetching dungeon profits: %v", err)
 		c.sendFailedEmbed("error fetching dungeon profits", s, i)
@@ -138,6 +141,7 @@ func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.Int
 	}
 }
 
+// Deprecated: not a fun stat to look
 func (c *Commands) coinSpentLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	type Result struct {
 		PlayerUUID string
