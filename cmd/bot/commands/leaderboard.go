@@ -33,7 +33,7 @@ func (c *Commands) leaderboard(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 	if _, ok := m["duration"]; ok {
-		timePeriod = store.Duration(m["leaderboard"].IntValue())
+		timePeriod = store.Duration(m["duration"].IntValue())
 	}
 	switch LeaderboardType(m["leaderboard"].IntValue()) {
 	// case CoinsSpent: c.coinSpentLeaderboard(s, i) Deprecated
