@@ -20,6 +20,23 @@ const (
 	Total
 )
 
+func (d Duration) String() string {
+	switch d {
+	case Day:
+		return "Daily"
+	case Week:
+		return "Weekly"
+	case Month:
+		return "Monthly"
+	case Year:
+		return "Yearly"
+	case Total:
+		return "Total"
+	default:
+		return fmt.Sprintf("Unknown duration type: %d", int(d))
+	}
+}
+
 func ApplyDuration(duration Duration, tsColumn string) func(*gorm.DB) *gorm.DB {
 	return func(query *gorm.DB) *gorm.DB {
 		now := time.Now()
