@@ -117,6 +117,7 @@ func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.Int
 				Joins("JOIN players on players.minecraft_uuid = dungeon_chests.player_uuid").
 				Where("players.username = ?", r.Username).
 				Distinct("run_id").
+				Scopes(store.ApplyDuration(duration, "dungeon_chests.created_at")).
 				Count(&runs)
 
 			profitRate := utils.ShortNumber(r.Profit / int(runs))
