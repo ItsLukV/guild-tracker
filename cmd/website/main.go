@@ -158,7 +158,7 @@ func leaderboardTable(rows []LeaderboardRow, title, current, currentTime string)
 	return Div(
 		ID("leaderboard"),
 		H1(Text(title)),
-		Div(Class("not-prose flex gap-4"), // put the two selects side by side
+		Div(Class("not-prose flex gap-4"),
 			boardSelect(current),
 			timeSelect(currentTime),
 		),
