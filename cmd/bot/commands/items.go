@@ -75,7 +75,8 @@ func (c *Commands) items(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var totalValue int
 	for _, chest := range chests {
 		for _, reward := range chest.Rewards {
-			itemID, qty := market.ParseReward(reward)
+			itemIDRaw, qty := market.ParseReward(reward)
+			itemID := store.RemoveShinyNecron(itemIDRaw)
 			price, ok := c.MarketCache.Price(itemID)
 			if !ok {
 				continue
@@ -83,10 +84,10 @@ func (c *Commands) items(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			itemChestPrice := market.ChestPriceItems[chest.TreasureType][strconv.Itoa(chest.DungeonTier)][reward]
 			value := (int(price) - itemChestPrice) * qty
 
-			stat, ok := byItem[itemID]
+			stat, ok := byItem[itemIDRaw]
 			if !ok {
 				stat = &itemStat{}
-				byItem[itemID] = stat
+				byItem[itemIDRaw] = stat
 			}
 			stat.count++
 			stat.value += value

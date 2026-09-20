@@ -90,7 +90,7 @@ func TotalRunsByPlayer(db *gorm.DB, duration Duration) ([]PlayerRunCount, error)
 	return runs, nil
 }
 
-func removeShinyNecron(itemId string) string {
+func RemoveShinyNecron(itemId string) string {
 	switch itemId {
 	case "SHINY_NECRON_HANDLE":
 		return "NECRON_HANDLE"
@@ -146,7 +146,7 @@ func TotalProfitByPlayer(db *gorm.DB, cache *market.Cache, duration Duration) ([
 		profit := 0
 		for _, reward := range chest.Rewards {
 			itemID, qty := market.ParseReward(reward)
-			itemID = removeShinyNecron(itemID)
+			itemID = RemoveShinyNecron(itemID)
 
 			price, ok := cache.Price(itemID)
 			if !ok {
