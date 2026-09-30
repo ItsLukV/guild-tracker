@@ -183,7 +183,9 @@ func TotalProfitByPlayer(db *gorm.DB, cache *market.Cache, duration Duration) ([
 
 		db.Model(&DungeonChest{}).
 			Select("SUM(dungeon_chests.Rerolls) as rerolls").
+			Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 			Where("dungeon_chests.player_uuid = ?", uuid).
+			Where("dungeon_runs.dungeon_tier = ? and dungeon_runs.dungeon_type = ?", 7, "master_catacombs").
 			Scopes(ApplyDuration(duration, "dungeon_chests.created_at")).
 			Find(&rerolls)
 
