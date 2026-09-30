@@ -116,8 +116,10 @@ func (c *Commands) chestProfitLeaderboard(s *discordgo.Session, i *discordgo.Int
 
 			c.db.Model(&store.DungeonChest{}).
 				Joins("JOIN players on players.minecraft_uuid = dungeon_chests.player_uuid").
+				Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 				Where("players.username = ?", r.Username).
-				Distinct("run_id").
+				Where("dungeon_runs.dungeon_tier = ? and dungeon_runs.dungeon_type = ?", 7, "master_catacombs").
+				Distinct("dungeon_chests.run_id").
 				Scopes(store.ApplyDuration(duration, "dungeon_chests.created_at")).
 				Count(&runs)
 
