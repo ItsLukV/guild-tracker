@@ -78,7 +78,9 @@ func TotalRunsByPlayer(db *gorm.DB, duration Duration) ([]PlayerRunCount, error)
 	err := db.Model(&DungeonChest{}).
 		Select("COUNT(DISTINCT dungeon_chests.run_id) as count, players.username as Username").
 		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
+		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 		Where("players.in_guild = ?", true).
+		Where("dungeon_runs.dungeon_tier = ? and dungeon_runs.dungeon_type = ?", 7, "master_catacombs").
 		Group("players.username").
 		Scopes(ApplyDuration(duration, "dungeon_chests.created_at")).
 		Order("count DESC").
@@ -123,6 +125,7 @@ func TotalProfitByPlayer(db *gorm.DB, cache *market.Cache, duration Duration) ([
 		Joins("JOIN players ON players.minecraft_uuid = dungeon_chests.player_uuid").
 		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 		Where("dungeon_chests.paid = ? AND players.in_guild = ?", true, true).
+		Where("dungeon_runs.dungeon_tier = ? and dungeon_runs.dungeon_type = ?", 7, "master_catacombs").
 		Scopes(ApplyDuration(duration, "dungeon_chests.created_at")).
 		Find(&chests).Error
 
