@@ -49,6 +49,7 @@ func (c *Commands) items(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	c.db.Model(&store.DungeonChest{}).
 		Select("dungeon_chests.*, dungeon_runs.dungeon_type, dungeon_runs.dungeon_tier").
 		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
+		Where("dungeon_runs.dungeon_tier = ? and dungeon_runs.dungeon_type = ?", 7, "master_catacombs").
 		Where("dungeon_chests.paid = ? AND dungeon_chests.player_uuid = ?", true, uuid).
 		Find(&chests)
 
@@ -58,13 +59,17 @@ func (c *Commands) items(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	c.db.Model(&store.DungeonChest{}).
 		Select("SUM(dungeon_chests.Rerolls) as rerolls").
+		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
 		Where("dungeon_chests.player_uuid = ?", uuid).
+		Where("dungeon_runs.dungeon_tier = ? and dungeon_runs.dungeon_type = ?", 7, "master_catacombs").
 		Find(&rerolls)
 
 	var runs int64
 	c.db.Model(&store.DungeonChest{}).
-		Where("player_uuid = ?", uuid).
-		Distinct("run_id").
+		Joins("JOIN dungeon_runs ON dungeon_runs.run_id = dungeon_chests.run_id").
+		Where("dungeon_chests.player_uuid = ?", uuid).
+		Where("dungeon_runs.dungeon_tier = ? and dungeon_runs.dungeon_type = ?", 7, "master_catacombs").
+		Distinct("dungeon_chests.run_id").
 		Count(&runs)
 
 	type itemStat struct {
